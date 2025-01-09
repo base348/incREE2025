@@ -42,6 +42,18 @@ public enum Operator {
         };
     }
 
+    public <T extends Comparable<T>> boolean compareAttributes(T value1, T value2) {
+        return switch (this) {
+            case EQUAL -> value1.equals(value2);
+            case NOT_EQUAL -> !value1.equals(value2);
+            case GREATER_THAN -> value1.compareTo(value2) > 0;
+            case LESS_THAN -> value1.compareTo(value2) < 0;
+            case GREATER_THAN_OR_EQUAL -> value1.compareTo(value2) >= 0;
+            case LESS_THAN_OR_EQUAL -> value1.compareTo(value2) <= 0;
+            default -> throw new IllegalArgumentException("Unknown operator: " + this);
+        };
+    }
+
     @Override
     public String toString() {
         return symbol;

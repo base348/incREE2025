@@ -63,13 +63,13 @@ public class RawColumn {
                 }
                 return column;
             case NUMERIC:
-                NumericColumn<Double> column1 = new NumericColumn<>(name);
+                NumericColumn<Double> column1 = new NumericColumn<>(name, Type.NUMERIC);
                 for (int line = 0; line < lineCount; line++) {
                     column1.addLine(getDouble(line));
                 }
                 return column1;
             case LONG:
-                NumericColumn<Long> column2 = new NumericColumn<>(name);
+                NumericColumn<Long> column2 = new NumericColumn<>(name, Type.LONG);
                 for (int line = 0; line < lineCount; line++) {
                     column2.addLine(getLong(line));
                 }
