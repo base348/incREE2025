@@ -57,19 +57,19 @@ public class RawColumn {
     public Column<?> build(int lineCount) {
         switch (this.getTypeByName()) {
             case STRING:
-                StringColumn column = new StringColumn(name);
+                Column<String> column = new Column<>(name, Type.STRING);
                 for (int line = 0; line < lineCount; line++) {
                     column.addLine(getString(line));
                 }
                 return column;
             case NUMERIC:
-                NumericColumn<Double> column1 = new NumericColumn<>(name, Type.NUMERIC);
+                Column<Double> column1 = new Column<>(name, Type.NUMERIC);
                 for (int line = 0; line < lineCount; line++) {
                     column1.addLine(getDouble(line));
                 }
                 return column1;
             case LONG:
-                NumericColumn<Long> column2 = new NumericColumn<>(name, Type.LONG);
+                Column<Long> column2 = new Column<>(name, Type.LONG);
                 for (int line = 0; line < lineCount; line++) {
                     column2.addLine(getLong(line));
                 }

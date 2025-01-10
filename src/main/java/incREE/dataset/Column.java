@@ -4,16 +4,17 @@ import com.google.common.collect.Sets;
 
 import java.util.*;
 
-public abstract class Column<T> {
+public class Column<T extends Comparable<T>> {
     public String name;
     private int size = 0;
-    protected Map<T, TreeSet<Integer>> PLI;
+    private final Map<T, TreeSet<Integer>> PLI;
     private final List<T> values = new ArrayList<>();
     public final RawColumn.Type type;
 
     public Column(String name, RawColumn.Type type) {
         this.name = name;
         this.type = type;
+        PLI = new TreeMap<>();
     }
 
 
@@ -39,6 +40,10 @@ public abstract class Column<T> {
         } else {
             return 0;
         }
+    }
+
+    public Map<T, TreeSet<Integer>> getPLI() {
+        return PLI;
     }
 
     public void printPLI() {
