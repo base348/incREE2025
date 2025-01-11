@@ -24,4 +24,11 @@ public class TuplePair {
         return relation.satisfies(tpId, predicate);
     }
 
+    @Override
+    public String toString() {
+        int idX = tpId / relation.size;
+        int idY = tpId % relation.size;
+        return "(" + idX + ", " + idY + ")";
+    }
+
 }

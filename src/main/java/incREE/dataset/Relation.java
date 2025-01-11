@@ -56,6 +56,14 @@ public class Relation {
         return size * (size - 1);
     }
 
+    public int getMaxTuplePairId() {
+        return getTuplePairId(size-1, size-2);
+    }
+
+    public boolean isReflexive(int tpId) {
+        return (tpId % (size + 1) == 0);
+    }
+
     public List<ColumnPair> getColumnPairs() {
         List<ColumnPair> pairs = new ArrayList<>();
         for (int i = 0; i < attributeCount; i++) {

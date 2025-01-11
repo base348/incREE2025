@@ -1,32 +1,30 @@
 package incREE.evidence;
 
-import incREE.Main;
 import incREE.dataset.Column;
 import incREE.dataset.ColumnPair;
 import incREE.dataset.RawColumn;
 import incREE.dataset.Relation;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
+import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
 public class Predicate<T extends Comparable<T>> {
     private static final double MINIMUM_SHARED_VALUE = 0.3d;
 
-    public Column<T> attribute1;
-    public Operator operator;
-    public Column<T> attribute2;
+    public final Column<T> attribute1;
+    public final Operator operator;
+    public final Column<T> attribute2;
+    public final int index;
 
-    private Predicate(Column<T> attribute1, Operator operator, Column<T> attribute2) {
+    private Predicate(Column<T> attribute1, Operator operator, Column<T> attribute2, int index) {
         this.attribute1 = attribute1;
         this.operator = operator;
         this.attribute2 = attribute2;
+        this.index = index;
     }
 
-    private static <T extends Comparable<T>> Predicate<T> build(Column<?> attribute1, Operator operator, Column<?> attribute2) {
+    private static <T extends Comparable<T>> Predicate<T> build(Column<?> attribute1, Operator operator, Column<?> attribute2, int index) {
         if (!attribute1.type.equals(attribute2.type)) {
             throw new IllegalArgumentException("Column types must match: " +
                     attribute1.type + " vs " + attribute2.type);
@@ -38,8 +36,7 @@ public class Predicate<T extends Comparable<T>> {
         @SuppressWarnings("unchecked")
         Column<T> typedAttribute2 = (Column<T>) attribute2;
 
-        // 调用原始构造函数
-        return new Predicate<>(typedAttribute1, operator, typedAttribute2);
+        return new Predicate<>(typedAttribute1, operator, typedAttribute2, index);
     }
 
     /**
@@ -47,6 +44,7 @@ public class Predicate<T extends Comparable<T>> {
      */
     public static List<Predicate<?>> getPredicatesSpace(Relation relation) {
         List<Predicate<?>> predicates = new ArrayList<>();
+        int i = 0;
 
         Map<Boolean, List<ColumnPair>> partitioned = relation.getColumnPairs().stream().filter(
                 columnPair -> columnPair.firstColumn().getSharedPercentage(columnPair.secondColumn()) > MINIMUM_SHARED_VALUE
@@ -56,20 +54,45 @@ public class Predicate<T extends Comparable<T>> {
 
         List<ColumnPair> stringColumnPairs = partitioned.get(true);
         for (ColumnPair columnPair : stringColumnPairs) {
-            predicates.add(build(columnPair.firstColumn(), Operator.EQUAL, columnPair.secondColumn()));
-            predicates.add(build(columnPair.firstColumn(), Operator.NOT_EQUAL, columnPair.secondColumn()));
+            predicates.add(build(columnPair.firstColumn(), Operator.EQUAL, columnPair.secondColumn(), i++));
+            predicates.add(build(columnPair.firstColumn(), Operator.NOT_EQUAL, columnPair.secondColumn(), i++));
         }
 
         List<ColumnPair> numericColumnPairs = partitioned.get(false);
         for (ColumnPair columnPair : numericColumnPairs) {
-            predicates.add(build(columnPair.firstColumn(), Operator.EQUAL, columnPair.secondColumn()));
-            predicates.add(build(columnPair.firstColumn(), Operator.NOT_EQUAL, columnPair.secondColumn()));
-            predicates.add(build(columnPair.firstColumn(), Operator.GREATER_THAN, columnPair.secondColumn()));
-            predicates.add(build(columnPair.firstColumn(), Operator.LESS_THAN, columnPair.secondColumn()));
-            predicates.add(build(columnPair.firstColumn(), Operator.GREATER_THAN_OR_EQUAL, columnPair.secondColumn()));
-            predicates.add(build(columnPair.firstColumn(), Operator.LESS_THAN_OR_EQUAL, columnPair.secondColumn()));
+            predicates.add(build(columnPair.firstColumn(), Operator.EQUAL, columnPair.secondColumn(), i++));
+            predicates.add(build(columnPair.firstColumn(), Operator.NOT_EQUAL, columnPair.secondColumn(), i++));
+            predicates.add(build(columnPair.firstColumn(), Operator.GREATER_THAN, columnPair.secondColumn(), i++));
+            predicates.add(build(columnPair.firstColumn(), Operator.LESS_THAN, columnPair.secondColumn(), i++));
+            predicates.add(build(columnPair.firstColumn(), Operator.GREATER_THAN_OR_EQUAL, columnPair.secondColumn(), i++));
+            predicates.add(build(columnPair.firstColumn(), Operator.LESS_THAN_OR_EQUAL, columnPair.secondColumn(), i++));
         }
         return predicates;
+    }
+
+    public Set<Predicate<?>> getFixSet(Relation relation) {
+        if (this.attribute1.type.equals(RawColumn.Type.STRING)) {
+            // non-numeric equality
+            if (this.operator.equals(Operator.EQUAL)) {
+                return Set.of(this, relation.predicateSpace.get(this.index+1));
+            } else {
+                throw new IllegalArgumentException("Only equal operators are supported for non-numeric");
+            }
+        } else {
+            if (this.operator.equals(Operator.EQUAL)) {
+                // numeric equality
+                return Set.of(this
+                        , relation.predicateSpace.get(this.index+1)
+                        , relation.predicateSpace.get(this.index+3)
+                        , relation.predicateSpace.get(this.index+4));
+            } else {
+                // numeric gt
+                return Set.of(this
+                        , relation.predicateSpace.get(this.index+1)
+                        , relation.predicateSpace.get(this.index+2)
+                        , relation.predicateSpace.get(this.index+3));
+            }
+        }
     }
 
     /**
@@ -92,5 +115,18 @@ public class Predicate<T extends Comparable<T>> {
     public String toString() {
         return String.format("tx.%s %s ty.%s", attribute1,
                 operator, attribute2);
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        Predicate<?> that = (Predicate<?>) o;
+        return that.index == index;
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(index);
     }
 }

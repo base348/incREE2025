@@ -11,7 +11,7 @@ public class Checker {
         return set.size() != list.size();
     }
 
-    public static <T> void checkLists(List<T> list1, List<T> list2) {
+    public static void checkLists(List<Integer> list1, List<Integer> list2) {
         // 检查 list1 是否有重复元素
         if (hasDuplicates(list1)) {
             throw new IllegalArgumentException("List1 contains duplicate elements.");
