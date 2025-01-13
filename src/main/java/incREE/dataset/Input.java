@@ -9,7 +9,7 @@ public class Input {
     private final int lineCountLimit;
     private Scanner scanner;
     private int lineCount = 0;
-    private int columnCount = 0;
+    private final int columnCount;
     private final List<RawColumn> rawColumns = new ArrayList<RawColumn>();
 
     public Input(String fileName, int lineCountLimit) {

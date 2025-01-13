@@ -95,6 +95,10 @@ public class Predicate<T extends Comparable<T>> {
         }
     }
 
+    public boolean isDependent(Predicate<?> predicate) {
+        return (this.attribute1 == predicate.attribute1) && (this.attribute2 == predicate.attribute2);
+    }
+
     /**
      * percent of tuple pairs that satisfy this predicate
      */
@@ -113,8 +117,9 @@ public class Predicate<T extends Comparable<T>> {
 
     @Override
     public String toString() {
-        return String.format("tx.%s %s ty.%s", attribute1,
-                operator, attribute2);
+//        return String.format("tx.%s %s ty.%s", attribute1,
+//                operator, attribute2);
+        return String.format("p%d", index);
     }
 
     @Override

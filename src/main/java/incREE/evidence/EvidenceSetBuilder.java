@@ -12,7 +12,7 @@ public class EvidenceSetBuilder {
 
     public EvidenceSetBuilder(Relation relation) {
         this.relation = relation;
-        this.maxTPId = relation.getMaxTuplePairId() + 1;
+        this.maxTPId = relation.getMaxTuplePairId();
         this.evidenceSet = new ArrayList<>(maxTPId);
     }
 
@@ -146,6 +146,19 @@ public class EvidenceSetBuilder {
 
     public List<List<Predicate<?>>> getEvidenceSet() {
         return evidenceSet;
+    }
+
+    public List<Evidence> getDegenerateEvidenceSet() {
+        Map<Set<Predicate<?>>, Integer> evidenceMap = new HashMap<>();
+        List<Evidence> degenerateEvidenceSet = new ArrayList<>();
+        for (int i = 0; i < maxTPId; i++) {
+            if (!relation.isReflexive(i)) {
+                Set<Predicate<?>> evidence = Set.copyOf(evidenceSet.get(i));
+                evidenceMap.merge(evidence, 1, Integer::sum);
+            }
+        }
+        evidenceMap.forEach((k, v) -> degenerateEvidenceSet.add(new Evidence(k, v)));
+        return degenerateEvidenceSet;
     }
 
 

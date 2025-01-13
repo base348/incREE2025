@@ -1,5 +1,7 @@
 package incREE.evidence;
 
+import incREE.dataset.Relation;
+
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -26,5 +28,24 @@ public class Checker {
         if (!new HashSet<>(list1).equals(new HashSet<>(list2))) {
             throw new IllegalArgumentException("Lists do not contain the same elements.");
         }
+    }
+
+    public static void checkDCNaive(Relation relation, List<Predicate<?>> dc) {
+        int inconsistent = 0;
+        for (int tpId = 0; tpId < relation.getMaxTuplePairId(); tpId++ ) {
+            if (!relation.isReflexive(tpId)) {
+                boolean consistent = false;
+                for (Predicate<?> predicate : dc) {
+                    if (relation.satisfies(tpId, predicate)) {
+                        consistent = true;
+                        break;
+                    }
+                }
+                if (!consistent) {
+                    inconsistent++;
+                }
+            }
+        }
+        System.out.println("Inconsistent percent of " + dc + ": " + inconsistent / relation.getTotalTuplePairs());
     }
 }

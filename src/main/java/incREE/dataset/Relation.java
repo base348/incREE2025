@@ -57,7 +57,7 @@ public class Relation {
     }
 
     public int getMaxTuplePairId() {
-        return getTuplePairId(size-1, size-2);
+        return getTuplePairId(size-1, size-1);
     }
 
     public boolean isReflexive(int tpId) {
