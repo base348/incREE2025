@@ -16,12 +16,10 @@ public class DCFinder {
     private final Relation relation;
     private final List<Evidence> er;
 
-    public DCFinder(double errorThreshold, Relation relation) {
+    public DCFinder(double errorThreshold, Relation relation, List<Evidence> er) {
         this.errorThreshold = errorThreshold;
         this.relation = relation;
-        EvidenceSetBuilder builder = new EvidenceSetBuilder(relation);
-        builder.buildEvidenceSet();
-        er = builder.getDegenerateEvidenceSet();
+        this.er = er;
     }
 
     private <T> boolean isSubset(List<T> subset, List<T> set) {
@@ -43,25 +41,12 @@ public class DCFinder {
         return false;
     }
 
-    private boolean isCover(List<Predicate<?>> q) {
-        int threshold = (int) (errorThreshold * relation.getTotalTuplePairs());
-        for (Evidence e : er) {
-            if (Collections.disjoint(e.predicates(), q)) {
-                threshold -= e.multiplicity();
-                if (threshold < 0) {
-                    return false;
-                }
-            }
-        }
-        return true;
-    }
-
     private boolean isMinimal(List<Predicate<?>> q) {
         // no subset of size |q|-1 cover this.er
         for (Predicate<?> p : q) {
             List<Predicate<?>> sub = new ArrayList<>(q);
             sub.remove(p);
-            if (isCover(sub)) {
+            if (Evidence.satisfies(sub, er, (int) (errorThreshold * relation.getTotalTuplePairs()))) {
                 return false;
             }
         }
