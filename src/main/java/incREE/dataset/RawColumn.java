@@ -19,10 +19,6 @@ public class RawColumn {
         this.name = name;
     }
 
-    public boolean isNumeric() {
-        return false;
-    }
-
     public Type getTypeByName() {
         if (name.contains("String"))
             return Type.STRING;

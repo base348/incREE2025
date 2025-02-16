@@ -6,14 +6,14 @@ import java.util.List;
 import java.util.Scanner;
 
 public class Input {
-    private final int lineCountLimit;
+    private final int linesNum;
     private Scanner scanner;
     private int lineCount = 0;
     private final int columnCount;
-    private final List<RawColumn> rawColumns = new ArrayList<RawColumn>();
+    private final String[] header;
 
-    public Input(String fileName, int lineCountLimit) {
-        this.lineCountLimit = lineCountLimit;
+    public Input(String fileName, int linesNum) {
+        this.linesNum = linesNum;
         try {
             InputStream inputStream = getClass().getClassLoader().getResourceAsStream(fileName);
             if (inputStream == null) {
@@ -27,15 +27,16 @@ public class Input {
             System.exit(1);
         }
 
-        String[] header = scanner.nextLine().split(",");
+        header = scanner.nextLine().split(",");
+        columnCount = header.length;
+    }
+
+    private List<RawColumn> readLines(int aim) {
+        List<RawColumn> rawColumns = new ArrayList<RawColumn>();
         for (String s : header) {
             rawColumns.add(new RawColumn(s));
         }
-        columnCount = rawColumns.size();
-    }
-
-    private void readLines() {
-        while (scanner.hasNextLine() && lineCount < lineCountLimit) {
+        while (scanner.hasNextLine() && lineCount < aim) {
             String line = scanner.nextLine();
             String[] columns = line.split(",");
             for (int i = 0; i < columns.length; i++) {
@@ -43,10 +44,11 @@ public class Input {
             }
             lineCount++;
         }
+        return rawColumns;
     }
 
-    public Relation toRelation() {
-        readLines();
+    public Relation getRelation() {
+        List<RawColumn> rawColumns = readLines(linesNum);
         List<Column<?>> columns = new ArrayList<>(columnCount);
         for (int i = 0; i < columnCount; i++) {
             columns.add(rawColumns.get(i).build(lineCount));

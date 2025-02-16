@@ -13,12 +13,12 @@ public class DCFinder {
     private static final int MAX_DC_LENGTH = 5;
 
     private final double errorThreshold;
-    private final Relation relation;
+    private final List<Predicate<?>> predicateSpace;
     private final List<Evidence> er;
 
-    public DCFinder(double errorThreshold, Relation relation, List<Evidence> er) {
-        this.errorThreshold = errorThreshold;
-        this.relation = relation;
+    public DCFinder(double errorRateThreshold, int totalTuplePairsNum, List<Predicate<?>> predicateSpace, List<Evidence> er) {
+        this.errorThreshold = errorRateThreshold * totalTuplePairsNum;
+        this.predicateSpace = predicateSpace;
         this.er = er;
     }
 
@@ -46,7 +46,7 @@ public class DCFinder {
         for (Predicate<?> p : q) {
             List<Predicate<?>> sub = new ArrayList<>(q);
             sub.remove(p);
-            if (Evidence.satisfies(sub, er, (int) (errorThreshold * relation.getTotalTuplePairs()))) {
+            if (Evidence.satisfies(sub, er, (int) errorThreshold)) {
                 return false;
             }
         }
@@ -54,7 +54,7 @@ public class DCFinder {
     }
 
     private void findCover(List<Predicate<?>> q, List<Evidence> ePath, List<Predicate<?>> pPath, List<List<Predicate<?>>> cover) {
-        if (Evidence.size(ePath) <= errorThreshold * relation.getTotalTuplePairs()) {
+        if (Evidence.size(ePath) <= errorThreshold) {
             if (isMinimal(q)) {
                 cover.add(q);
                 return;
@@ -97,7 +97,7 @@ public class DCFinder {
     public List<List<Predicate<?>>> findCover() {
         List<List<Predicate<?>>> cover = new ArrayList<>();
         List<Predicate<?>> q = new ArrayList<>();
-        findCover(q, er, relation.predicateSpace, cover);
+        findCover(q, er, predicateSpace, cover);
         return cover;
     }
 }
