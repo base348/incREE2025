@@ -1,17 +1,22 @@
 package incREE.dataset;
 
 import incREE.evidence.Predicate;
+import incREE.evidence.PredicateGroup;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.function.Consumer;
+import java.util.stream.Collectors;
 
 public class Relation {
+    private static final double MINIMUM_SHARED_VALUE = 0.3d;
     int size;
     public List<String> attributeNames = new ArrayList<String>();
     public List<Column<?>> attributes;
     int attributeCount;
-    public List<Predicate<?>> predicateSpace;
+    public final List<Predicate<?>> predicateSpace = new ArrayList<>();
+    public final List<PredicateGroup> predicateGroups = new ArrayList<>();
 
     public Relation(List<Column<?>> attributes, int size) {
         this.attributes = attributes;
@@ -21,7 +26,34 @@ public class Relation {
             attributeNames.add(attribute.name);
         }
 
-        predicateSpace = Predicate.getPredicatesSpace(this);
+        List<ColumnPair> columnPairs = new ArrayList<>();
+        for (int i = 0; i < attributeCount; i++) {
+            for (int j = i; j < attributeCount; j++) {
+                Column<?> attribute = attributes.get(i);
+                Column<?> attribute2 = attributes.get(j);
+                if (attribute.type.equals(attribute2.type)) {
+                    columnPairs.add(new ColumnPair(attribute, attribute2));
+                }
+            }
+        }
+
+        Map<Boolean, List<ColumnPair>> partitioned = columnPairs.stream().filter(
+                columnPair -> columnPair.firstColumn().getSharedPercentage(columnPair.secondColumn()) > MINIMUM_SHARED_VALUE
+        ).collect(
+                Collectors.partitioningBy(columnPair -> columnPair.firstColumn().type == RawColumn.Type.STRING)
+        );
+
+        List<ColumnPair> stringColumnPairs = partitioned.get(true);
+        int length = 0;
+        for (ColumnPair columnPair : stringColumnPairs) {
+            predicateGroups.add(new PredicateGroup(PredicateGroup.Type.STRING, predicateSpace, length, columnPair));
+            length += 2;
+        }
+        List<ColumnPair> numericColumnPairs = partitioned.get(false);
+        for (ColumnPair columnPair : numericColumnPairs) {
+            predicateGroups.add(new PredicateGroup(PredicateGroup.Type.NUMERIC, predicateSpace, length, columnPair));
+            length += 6;
+        }
     }
 
     public int getTuplePairId(int tidX, int tidY) {
@@ -62,20 +94,6 @@ public class Relation {
 
     public boolean isReflexive(int tpId) {
         return (tpId % (size + 1) == 0);
-    }
-
-    public List<ColumnPair> getColumnPairs() {
-        List<ColumnPair> pairs = new ArrayList<>();
-        for (int i = 0; i < attributeCount; i++) {
-            for (int j = i; j < attributeCount; j++) {
-                Column<?> attribute = attributes.get(i);
-                Column<?> attribute2 = attributes.get(j);
-                if (attribute.type.equals(attribute2.type)) {
-                    pairs.add(new ColumnPair(attribute, attribute2));
-                }
-            }
-        }
-        return pairs;
     }
 
 

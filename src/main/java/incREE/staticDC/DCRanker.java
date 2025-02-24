@@ -28,11 +28,11 @@ public class DCRanker {
             List<Predicate<?>> sub = new ArrayList<>(dc);
             sub.remove(predicate);
             amountSub = 0;
-            for (Evidence evidence : er) {
-                if (evidence.satisfied(sub)) {
-                    amountSub += evidence.multiplicity();
-                }
-            }
+//            for (Evidence evidence : er) {
+//                if (evidence.satisfied(sub)) {
+//                    amountSub += evidence.multiplicity();
+//                }
+//            }
             amount = Math.max(amount, amountSub);
         }
         return amount;

@@ -11,6 +11,7 @@ import java.util.stream.Collectors;
 
 public class Predicate<T extends Comparable<T>> {
     private static final double MINIMUM_SHARED_VALUE = 0.3d;
+    private static int count = 0;
 
     public final Column<T> attribute1;
     public final Operator operator;
@@ -24,7 +25,7 @@ public class Predicate<T extends Comparable<T>> {
         this.index = index;
     }
 
-    private static <T extends Comparable<T>> Predicate<T> build(Column<?> attribute1, Operator operator, Column<?> attribute2, int index) {
+    public static <T extends Comparable<T>> Predicate<T> build(Column<?> attribute1, Operator operator, Column<?> attribute2, int index) {
         if (!attribute1.type.equals(attribute2.type)) {
             throw new IllegalArgumentException("Column types must match: " +
                     attribute1.type + " vs " + attribute2.type);
@@ -39,35 +40,8 @@ public class Predicate<T extends Comparable<T>> {
         return new Predicate<>(typedAttribute1, operator, typedAttribute2, index);
     }
 
-    /**
-     * Only attributes with same type and share at least MINIMUM_SHARED_VALUE can be combined
-     */
-    public static List<Predicate<?>> getPredicatesSpace(Relation relation) {
-        List<Predicate<?>> predicates = new ArrayList<>();
-        int i = 0;
-
-        Map<Boolean, List<ColumnPair>> partitioned = relation.getColumnPairs().stream().filter(
-                columnPair -> columnPair.firstColumn().getSharedPercentage(columnPair.secondColumn()) > MINIMUM_SHARED_VALUE
-        ).collect(
-                Collectors.partitioningBy(columnPair -> columnPair.firstColumn().type == RawColumn.Type.STRING)
-        );
-
-        List<ColumnPair> stringColumnPairs = partitioned.get(true);
-        for (ColumnPair columnPair : stringColumnPairs) {
-            predicates.add(build(columnPair.firstColumn(), Operator.EQUAL, columnPair.secondColumn(), i++));
-            predicates.add(build(columnPair.firstColumn(), Operator.NOT_EQUAL, columnPair.secondColumn(), i++));
-        }
-
-        List<ColumnPair> numericColumnPairs = partitioned.get(false);
-        for (ColumnPair columnPair : numericColumnPairs) {
-            predicates.add(build(columnPair.firstColumn(), Operator.EQUAL, columnPair.secondColumn(), i++));
-            predicates.add(build(columnPair.firstColumn(), Operator.NOT_EQUAL, columnPair.secondColumn(), i++));
-            predicates.add(build(columnPair.firstColumn(), Operator.GREATER_THAN, columnPair.secondColumn(), i++));
-            predicates.add(build(columnPair.firstColumn(), Operator.LESS_THAN, columnPair.secondColumn(), i++));
-            predicates.add(build(columnPair.firstColumn(), Operator.GREATER_THAN_OR_EQUAL, columnPair.secondColumn(), i++));
-            predicates.add(build(columnPair.firstColumn(), Operator.LESS_THAN_OR_EQUAL, columnPair.secondColumn(), i++));
-        }
-        return predicates;
+    public static <T extends Comparable<T>> Predicate<T> build(Column<?> attribute1, Operator operator, Column<?> attribute2) {
+        return build(attribute1, operator, attribute2, count++);
     }
 
     public Set<Predicate<?>> getFixSet(Relation relation) {

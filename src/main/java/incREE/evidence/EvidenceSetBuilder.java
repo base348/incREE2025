@@ -8,7 +8,7 @@ import java.util.stream.Collectors;
 public class EvidenceSetBuilder {
     private final Relation relation;
     private final int maxTPId;
-    private final List<List<Predicate<?>>> evidenceSet;
+    private final List<PredicateBitmap> evidenceSet;
 
     public EvidenceSetBuilder(Relation relation) {
         this.relation = relation;
@@ -40,10 +40,15 @@ public class EvidenceSetBuilder {
         return pairs;
     }
 
-    private <T extends Comparable<T>> List<Integer> getInconsistentTuplePairs(Predicate<T> predicates) {
+    /**
+     * Use PLT to find inconsistent TuplePairs
+     * @param predicate predicate with operator = or >
+     * @return List of TuplePair ID that inconsistent with given predicate
+     */
+    private <T extends Comparable<T>> List<Integer> getInconsistentTuplePairs(Predicate<T> predicate) {
         // TODO: optimize this algorithm by decreasing compare operations
-        Map<T, TreeSet<Integer>> PLTLeft = predicates.attribute1.getPLI();
-        Map<T, TreeSet<Integer>> PLTRight = predicates.attribute2.getPLI();
+        Map<T, TreeSet<Integer>> PLTLeft = predicate.attribute1.getPLI();
+        Map<T, TreeSet<Integer>> PLTRight = predicate.attribute2.getPLI();
         List<Map.Entry<T, TreeSet<Integer>>> clustersLeft = new ArrayList<>(PLTLeft.entrySet());
         List<Map.Entry<T, TreeSet<Integer>>> clustersRight = new ArrayList<>(PLTRight.entrySet());
         int leftSize = clustersLeft.size();
@@ -51,7 +56,7 @@ public class EvidenceSetBuilder {
         int i = 0;
         int j = 0;
         ArrayList<Integer> inconsistentTuplePairs = new ArrayList<>();
-        switch (predicates.operator) {
+        switch (predicate.operator) {
             case EQUAL:
                 while (i < leftSize && j < rightSize) {
                     int compare = clustersLeft.get(i).getKey().compareTo(clustersRight.get(j).getKey());
@@ -82,10 +87,12 @@ public class EvidenceSetBuilder {
         return inconsistentTuplePairs;
     }
 
-    private List<Predicate<?>> getEvidenceHead() {
-        return relation.predicateSpace.stream().filter(e ->
-                (e.operator.equals(Operator.NOT_EQUAL) || e.operator.equals(Operator.LESS_THAN) || e.operator.equals(Operator.LESS_THAN_OR_EQUAL))
-        ).collect(Collectors.toList());
+    private PredicateBitmap getEvidenceHead() {
+        BitSet bitSet = new BitSet(relation.predicateSpace.size());
+        for (PredicateGroup predicateGroup : relation.predicateGroups) {
+            predicateGroup.setHead(bitSet);
+        }
+        return new PredicateBitmap(bitSet);
     }
 
     private void symmetricDifference(List<Predicate<?>> e1, Set<Predicate<?>> e2) {
@@ -110,33 +117,46 @@ public class EvidenceSetBuilder {
 
     public void buildEvidenceSet() {
         // initialize all by eHead
-        List<Predicate<?>> evidenceHead = getEvidenceHead();
+        PredicateBitmap evidenceHead = getEvidenceHead();
         for (int i = 0; i < maxTPId; i++) {
-            List<Predicate<?>> evidence = new ArrayList<>(evidenceHead);
-            evidenceSet.add(evidence);
+            evidenceSet.add(evidenceHead.copy());
         }
-        // reconstruction
-        relation.predicateSpace.stream().filter(e ->
-                (e.operator.equals(Operator.EQUAL) || e.operator.equals(Operator.GREATER_THAN))
-        ).forEach(p -> {
-            Set<Predicate<?>> fix = p.getFixSet(relation);
-            List<Integer> tps = getInconsistentTuplePairs(p);
-            tps.forEach(tpId -> {
-                if (tpId >= maxTPId) {
-                    System.err.println("Index out of bounds: " + tpId);
+        // Reconcile
+        List<Operator> ops = List.of(Operator.EQUAL, Operator.GREATER_THAN);
+        for (PredicateGroup predicateGroup : relation.predicateGroups) {
+            for (Predicate<?> predicate : predicateGroup.getPredicates(ops)) {
+                PredicateBitmap fix = predicateGroup.getFixSet(predicate);
+                List<Integer> tps = getInconsistentTuplePairs(predicate);
+                for (Integer tpId : tps) {
+                    if (tpId >= maxTPId) {
+                        System.err.println("Index out of bounds: " + tpId);
+                    }
+                    evidenceSet.get(tpId).xor(fix);
                 }
-                symmetricDifference(evidenceSet.get(tpId), fix);
-            });
-        });
+            }
+        }
+//        relation.predicateSpace.stream().filter(e ->
+//                (e.operator.equals(Operator.EQUAL) || e.operator.equals(Operator.GREATER_THAN))
+//        ).forEach(p -> {
+//            // for each predicate p with operator = or >
+//            Set<Predicate<?>> fix = p.getFixSet(relation);
+//            List<Integer> tps = getInconsistentTuplePairs(p);
+//            tps.forEach(tpId -> {
+//                if (tpId >= maxTPId) {
+//                    System.err.println("Index out of bounds: " + tpId);
+//                }
+//                symmetricDifference(evidenceSet.get(tpId), fix);
+//            });
+//        });
     }
 
     public void buildEvidenceSetNaive() {
         for (int i = 0; i < maxTPId; i++) {
-            List<Predicate<?>> evidence = new ArrayList<>();
+            PredicateBitmap evidence = new PredicateBitmap();
             if (!relation.isReflexive(i)) {
                 for (Predicate<?> predicate : relation.predicateSpace) {
                     if (relation.satisfies(i, predicate)) {
-                        evidence.add(predicate);
+                        evidence.set(predicate.index);
                     }
                 }
             }
@@ -144,16 +164,16 @@ public class EvidenceSetBuilder {
         }
     }
 
-    public List<List<Predicate<?>>> getEvidenceSet() {
+    public List<PredicateBitmap> getEvidenceSet() {
         return evidenceSet;
     }
 
-    public List<Evidence> getDegenerateEvidenceSet() {
-        Map<Set<Predicate<?>>, Integer> evidenceMap = new HashMap<>();
+    public List<Evidence> collect() {
+        Map<PredicateBitmap, Integer> evidenceMap = new HashMap<>();
         List<Evidence> degenerateEvidenceSet = new ArrayList<>();
         for (int i = 0; i < maxTPId; i++) {
             if (!relation.isReflexive(i)) {
-                Set<Predicate<?>> evidence = Set.copyOf(evidenceSet.get(i));
+                PredicateBitmap evidence = evidenceSet.get(i).copy();
                 evidenceMap.merge(evidence, 1, Integer::sum);
             }
         }

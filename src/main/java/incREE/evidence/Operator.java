@@ -1,21 +1,19 @@
 package incREE.evidence;
 
 public enum Operator {
-    EQUAL("="),
-    NOT_EQUAL("≠"),
-    LESS_THAN("<"),
-    LESS_THAN_OR_EQUAL("≤"),
-    GREATER_THAN(">"),
-    GREATER_THAN_OR_EQUAL("≥");
+    EQUAL("=", 0),
+    NOT_EQUAL("≠", 1),
+    GREATER_THAN(">", 2),
+    LESS_THAN("<", 3),
+    GREATER_THAN_OR_EQUAL("≥", 4),
+    LESS_THAN_OR_EQUAL("≤", 5);
 
-    private final String symbol;
+    public final String symbol;
+    public final int value;
 
-    Operator(String symbol) {
+    Operator(String symbol, int value) {
         this.symbol = symbol;
-    }
-
-    public String getSymbol() {
-        return symbol;
+        this.value = value;
     }
 
     public boolean implication(Operator other) {

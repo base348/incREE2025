@@ -4,7 +4,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 
-public record Evidence(Set<Predicate<?>> predicates, int multiplicity) {
+public record Evidence(PredicateBitmap predicates, int multiplicity) {
     public boolean contains(Predicate<?> p) {
         return predicates.contains(p);
     }
@@ -17,11 +17,11 @@ public record Evidence(Set<Predicate<?>> predicates, int multiplicity) {
         return size;
     }
 
-    public boolean satisfied(List<Predicate<?>> dc) {
-        return !Collections.disjoint(dc, this.predicates);
+    public boolean satisfied(PredicateBitmap dc) {
+        return predicates.disjoint(dc);
     }
 
-    public static boolean satisfies(List<Predicate<?>> dc, List<Evidence> er, int errorThreshold) {
+    public static boolean satisfies(PredicateBitmap dc, List<Evidence> er, int errorThreshold) {
         for (Evidence e : er) {
             if (!e.satisfied(dc)) {
                 errorThreshold -= e.multiplicity();
@@ -31,5 +31,13 @@ public record Evidence(Set<Predicate<?>> predicates, int multiplicity) {
             }
         }
         return true;
+    }
+
+    public static boolean satisfies(List<Predicate<?>> list, List<Evidence> er, int errorThreshold) {
+        PredicateBitmap dc = new PredicateBitmap();
+        for (Predicate<?> p : list) {
+            dc.set(p.index);
+        }
+        return satisfies(dc, er, errorThreshold);
     }
 }
