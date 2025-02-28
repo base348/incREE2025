@@ -26,8 +26,8 @@ public class TuplePair {
 
     @Override
     public String toString() {
-        int idX = tpId / relation.size;
-        int idY = tpId % relation.size;
+        int idX = tpId / relation.currentSize;
+        int idY = tpId % relation.currentSize;
         return "(" + idX + ", " + idY + ")";
     }
 

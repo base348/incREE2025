@@ -1,13 +1,11 @@
 package incREE.evidence;
 
 import incREE.dataset.Column;
-import incREE.dataset.ColumnPair;
 import incREE.dataset.RawColumn;
 import incREE.dataset.Relation;
 
 import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.stream.Collectors;
 
 public class Predicate<T extends Comparable<T>> {
     private static final double MINIMUM_SHARED_VALUE = 0.3d;
@@ -16,13 +14,13 @@ public class Predicate<T extends Comparable<T>> {
     public final Column<T> attribute1;
     public final Operator operator;
     public final Column<T> attribute2;
-    public final int index;
+    public final int identifier;
 
-    private Predicate(Column<T> attribute1, Operator operator, Column<T> attribute2, int index) {
+    private Predicate(Column<T> attribute1, Operator operator, Column<T> attribute2, int identifier) {
         this.attribute1 = attribute1;
         this.operator = operator;
         this.attribute2 = attribute2;
-        this.index = index;
+        this.identifier = identifier;
     }
 
     public static <T extends Comparable<T>> Predicate<T> build(Column<?> attribute1, Operator operator, Column<?> attribute2, int index) {
@@ -48,7 +46,7 @@ public class Predicate<T extends Comparable<T>> {
         if (this.attribute1.type.equals(RawColumn.Type.STRING)) {
             // non-numeric equality
             if (this.operator.equals(Operator.EQUAL)) {
-                return Set.of(this, relation.predicateSpace.get(this.index+1));
+                return Set.of(this, relation.predicateSpace.get(this.identifier +1));
             } else {
                 throw new IllegalArgumentException("Only equal operators are supported for non-numeric");
             }
@@ -56,15 +54,15 @@ public class Predicate<T extends Comparable<T>> {
             if (this.operator.equals(Operator.EQUAL)) {
                 // numeric equality
                 return Set.of(this
-                        , relation.predicateSpace.get(this.index+1)
-                        , relation.predicateSpace.get(this.index+3)
-                        , relation.predicateSpace.get(this.index+4));
+                        , relation.predicateSpace.get(this.identifier +1)
+                        , relation.predicateSpace.get(this.identifier +3)
+                        , relation.predicateSpace.get(this.identifier +4));
             } else {
                 // numeric gt
                 return Set.of(this
-                        , relation.predicateSpace.get(this.index+1)
-                        , relation.predicateSpace.get(this.index+2)
-                        , relation.predicateSpace.get(this.index+3));
+                        , relation.predicateSpace.get(this.identifier +1)
+                        , relation.predicateSpace.get(this.identifier +2)
+                        , relation.predicateSpace.get(this.identifier +3));
             }
         }
     }
@@ -93,7 +91,7 @@ public class Predicate<T extends Comparable<T>> {
     public String toString() {
 //        return String.format("tx.%s %s ty.%s", attribute1,
 //                operator, attribute2);
-        return String.format("p%d", index);
+        return String.format("p%d", identifier);
     }
 
     @Override
@@ -101,11 +99,11 @@ public class Predicate<T extends Comparable<T>> {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
         Predicate<?> that = (Predicate<?>) o;
-        return that.index == index;
+        return that.identifier == identifier;
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(index);
+        return Objects.hash(identifier);
     }
 }

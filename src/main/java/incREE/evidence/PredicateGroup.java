@@ -4,9 +4,10 @@ import incREE.dataset.ColumnPair;
 
 import java.util.ArrayList;
 import java.util.BitSet;
-import java.util.Collection;
 import java.util.List;
 
+// Records a part of whole predicate space
+// Not include data tuple information
 public class PredicateGroup {
 
     public enum Type {
@@ -14,18 +15,23 @@ public class PredicateGroup {
         STRING,
     }
 
-    /*
-    public enum Operator {
+    /**
+     * Predicate from the same group can not combine freely.
+     * There are 2 cases for STRING: EQUAL or NOT_EQUAL.
+     * There are only 3 cases for NUMERIC: EQUAL, GREATER_THAN or LESS_THAN.
+     * EQUAL includes predicate = ≠ ≤
+     * GREATER includes predicate ≠ > ≥
+     * LESS_THAN includes predicate ≠ < ≤
+     */
+    public enum OperatorGroup {
         EQUAL,
         NOT_EQUAL,
-        GREATER,
-        LESS,
+        GREATER_THAN,
+        LESS_THAN,
     }
-     */
 
-//    List<Predicate<?>> allPredicates;
     Type type;
-    private final ColumnPair columnPair;
+    public final ColumnPair columnPair;
     private final int offset;
     private final int length;
     private final List<Predicate<?>> allPredicates;
@@ -52,54 +58,67 @@ public class PredicateGroup {
         this.allPredicates = allPredicates;
     }
 
+    /**
+     * Set the corresponding bits to head in the whole bitSet.
+     * Initialize bit set with correct bits as much as possible, so avoid EQUAL case.
+     * @param bitSet Whole bitSet for whole predicate space. Will be changed in place.
+     */
     public void setHead(BitSet bitSet) {
         if (type.equals(Type.NUMERIC)) {
-            // ≠ < ≤
+            // OperatorGroup.LESS_THAN: ≠ < ≤
             bitSet.set(offset + 1);
             bitSet.set(offset + 3);
             bitSet.set(offset + 5);
         } else {
+            // OperatorGroup.NOT_EQUAL
             bitSet.set(offset + 1);
         }
     }
 
-    public List<Predicate<?>> getPredicates(List<Operator> operators) {
-        List<Predicate<?>> predicates = new ArrayList<Predicate<?>>();
-        for (Operator operator : operators) {
-            if (operator.value < this.length) {
-                predicates.add(allPredicates.get(offset + operator.value));
+    /**
+     * @return Cases used for evidence reconcile. Not include cases which is used as head.
+     */
+    public OperatorGroup[] getReconcileOperatorGroup() {
+        if (type.equals(Type.STRING)) {
+            return new OperatorGroup[]{OperatorGroup.EQUAL};
+        } else {
+            return new OperatorGroup[]{OperatorGroup.EQUAL, OperatorGroup.GREATER_THAN};
+        }
+    }
+
+    /**
+     * @param operatorGroup Groups from getReconcileOperatorGroup()
+     * @return Fix set between head and provided operatorGroup
+     */
+    public PredicateBitmap getFixSet(OperatorGroup operatorGroup) {
+        BitSet bitSet = new BitSet();
+
+        if (this.type.equals(Type.STRING)) {
+            if (operatorGroup.equals(OperatorGroup.EQUAL)) {
+                // NOT_EQUAL to EQUAL: = ≠
+                bitSet.set(offset);
+                bitSet.set(offset + 1);
+            } else {
+                System.err.println("PredicateGroup.getFixSet: unexpected operator group");
+            }
+        } else if (this.type.equals(Type.NUMERIC)) {
+            if (operatorGroup.equals(OperatorGroup.EQUAL)) {
+                // LESS_THAN to EQUAL: = ≠ < ≥
+                bitSet.set(offset);
+                bitSet.set(offset + 1);
+                bitSet.set(offset + 3);
+                bitSet.set(offset + 4);
+            } else if (operatorGroup.equals(OperatorGroup.GREATER_THAN)) {
+                // LESS_THAN to GREATER_THAN: > < ≥ ≤
+                bitSet.set(offset + 2);
+                bitSet.set(offset + 3);
+                bitSet.set(offset + 4);
+                bitSet.set(offset + 5);
+            } else {
+                System.err.println("PredicateGroup.getFixSet: unexpected operator group");
             }
         }
-        return predicates;
-    }
 
-    public PredicateBitmap getFixSet(Predicate<?> predicate) {
-        if (predicate.index < this.offset || predicate.index >= this.offset + this.length) {
-            System.err.println("Error: invalid fix set");
-            return null;
-        }
-        if (type.equals(Type.STRING)) {
-            // non-numeric equality: = ≠
-            BitSet bitSet = new BitSet();
-            bitSet.set(offset);
-            bitSet.set(offset + 1);
-            return new PredicateBitmap(bitSet);
-        } else if (predicate.operator.equals(Operator.EQUAL)) {
-            // numeric equality: = ≠ < ≥
-            BitSet bitSet = new BitSet();
-            bitSet.set(offset);
-            bitSet.set(offset + 1);
-            bitSet.set(offset + 3);
-            bitSet.set(offset + 4);
-            return new PredicateBitmap(bitSet);
-        } else {
-            // numeric gt: > < ≥ ≤
-            BitSet bitSet = new BitSet();
-            bitSet.set(offset + 2);
-            bitSet.set(offset + 3);
-            bitSet.set(offset + 4);
-            bitSet.set(offset + 5);
-            return new PredicateBitmap(bitSet);
-        }
+        return new PredicateBitmap(bitSet);
     }
 }

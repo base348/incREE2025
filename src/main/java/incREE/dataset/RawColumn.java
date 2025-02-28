@@ -14,9 +14,11 @@ public class RawColumn {
     private final String name;
     private final List<String> values = new ArrayList<String>();
     private Type type = Type.LONG;
+    private final int currentLineNumber;
 
-    public RawColumn(String name) {
+    public RawColumn(String name, int currentLineNumber) {
         this.name = name;
+        this.currentLineNumber = currentLineNumber;
     }
 
     public Type getTypeByName() {
@@ -53,19 +55,19 @@ public class RawColumn {
     public Column<?> build(int lineCount) {
         switch (this.getTypeByName()) {
             case STRING:
-                Column<String> column = new Column<>(name, Type.STRING);
+                Column<String> column = new Column<>(name, Type.STRING, currentLineNumber);
                 for (int line = 0; line < lineCount; line++) {
                     column.addLine(getString(line));
                 }
                 return column;
             case NUMERIC:
-                Column<Double> column1 = new Column<>(name, Type.NUMERIC);
+                Column<Double> column1 = new Column<>(name, Type.NUMERIC, currentLineNumber);
                 for (int line = 0; line < lineCount; line++) {
                     column1.addLine(getDouble(line));
                 }
                 return column1;
             case LONG:
-                Column<Long> column2 = new Column<>(name, Type.LONG);
+                Column<Long> column2 = new Column<>(name, Type.LONG, currentLineNumber);
                 for (int line = 0; line < lineCount; line++) {
                     column2.addLine(getLong(line));
                 }

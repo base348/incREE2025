@@ -11,16 +11,18 @@ import java.util.stream.Collectors;
 
 public class Relation {
     private static final double MINIMUM_SHARED_VALUE = 0.3d;
-    int size;
+    public int currentSize; // After currentSize updated, previous TuplePairId can never be used
+    public final int totalSize;
     public List<String> attributeNames = new ArrayList<String>();
     public List<Column<?>> attributes;
     int attributeCount;
     public final List<Predicate<?>> predicateSpace = new ArrayList<>();
     public final List<PredicateGroup> predicateGroups = new ArrayList<>();
 
-    public Relation(List<Column<?>> attributes, int size) {
+    public Relation(List<Column<?>> attributes, int currentSize, int totalSize) {
         this.attributes = attributes;
-        this.size = size;
+        this.currentSize = currentSize;
+        this.totalSize = totalSize;
         this.attributeCount = attributes.size();
         for (Column<?> attribute : attributes) {
             attributeNames.add(attribute.name);
@@ -57,7 +59,7 @@ public class Relation {
     }
 
     public int getTuplePairId(int tidX, int tidY) {
-        return tidX * size + tidY;
+        return tidX * currentSize + tidY;
     }
 
     public Tuple getTuple(int tid) {
@@ -76,24 +78,24 @@ public class Relation {
      * All TuplePair, including reversed pairs like (0, 1) and (1, 0), without repeated pairs like (1, 1)
      */
     public void foreachTuplePair(Consumer<TuplePair> action) {
-        int terminal = getTuplePairId(size-1, size-1);
+        int terminal = getTuplePairId(currentSize -1, currentSize -1);
         for (int tpId = 0; tpId < terminal; tpId++) {
-            if (tpId % (size + 1) != 0) {
+            if (tpId % (currentSize + 1) != 0) {
                 action.accept(getTuplePair(tpId));
             }
         }
     }
 
     public int getTotalTuplePairs() {
-        return size * (size - 1);
+        return currentSize * (currentSize - 1);
     }
 
     public int getMaxTuplePairId() {
-        return getTuplePairId(size-1, size-1);
+        return getTuplePairId(currentSize -1, currentSize -1);
     }
 
     public boolean isReflexive(int tpId) {
-        return (tpId % (size + 1) == 0);
+        return (tpId % (currentSize + 1) == 0);
     }
 
 
@@ -104,8 +106,8 @@ public class Relation {
             throw new IllegalArgumentException("Invalid predicate: " + predicate + " has different types of attributes.");
         }
 
-        int idX = tpId / size;
-        int idY = tpId % size;
+        int idX = tpId / currentSize;
+        int idY = tpId % currentSize;
 
         T o1 = attribute1.get(idX);
         T o2 = attribute2.get(idY);
@@ -123,7 +125,7 @@ public class Relation {
 
 
     public void print() {
-        System.out.println("Size: " + size + " * " + attributeCount);
+        System.out.println("Size: " + currentSize + " * " + attributeCount);
         System.out.println("Attributes: " + attributeNames);
         for (Column<?> attribute : attributes) {
             attribute.printPLI();

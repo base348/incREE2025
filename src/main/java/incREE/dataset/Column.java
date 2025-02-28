@@ -10,23 +10,37 @@ public class Column<T extends Comparable<T>> {
     private final Map<T, TreeSet<Integer>> PLI;
     private final List<T> values = new ArrayList<>();
     public final RawColumn.Type type;
+    private int currentLineNumber;
 
-    public Column(String name, RawColumn.Type type) {
+    /**
+     *
+     * @param currentLineNumber Only tuples with id smaller than currentLineNumber will be calculated with PLI
+     */
+    public Column(String name, RawColumn.Type type, int currentLineNumber) {
         this.name = name;
         this.type = type;
         PLI = new TreeMap<>();
+        this.currentLineNumber = currentLineNumber;
     }
 
+    private void expandPLI(T value) {
+        PLI.compute(value, (k, v) -> v == null ? new TreeSet<>() : v).add(size++);
+    }
 
     public void addLine(T value) {
         values.add(value);
-        PLI.compute(value, (k, v) -> v == null ? new TreeSet<>() : v).add(size++);
+        if (size < currentLineNumber) {
+            expandPLI(value);
+        }
     }
 
     public T get(int index) {
         return values.get(index);
     }
 
+    /**
+     * Realized by PLI; need to deal with PLI update
+     */
     @SuppressWarnings("unchecked")
     public double getSharedPercentage(Column<?> column) {
         if (column.type.equals(type)) {
@@ -42,8 +56,16 @@ public class Column<T extends Comparable<T>> {
         }
     }
 
-    public Map<T, TreeSet<Integer>> getPLI() {
-        return PLI;
+    public Map<T, TreeSet<Integer>> getPLI(int aimLineNumber) {
+        if (aimLineNumber < this.size) {
+            throw new IllegalArgumentException("Column.getPLI: currentLineNumber > " + aimLineNumber + ", maybe you want delete tuples.");
+        } else {
+            // expand PLI here
+            while (aimLineNumber > this.size) {
+                expandPLI(this.values.get(this.size));
+            }
+            return PLI;
+        }
     }
 
     public void printPLI() {

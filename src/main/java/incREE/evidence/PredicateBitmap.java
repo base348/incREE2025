@@ -14,7 +14,7 @@ public class PredicateBitmap {
     }
 
     public boolean contains(Predicate<?> predicate) {
-        return bitset.get(predicate.index);
+        return bitset.get(predicate.identifier);
     }
 
     @Override

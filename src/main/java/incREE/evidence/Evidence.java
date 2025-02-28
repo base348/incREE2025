@@ -1,8 +1,6 @@
 package incREE.evidence;
 
-import java.util.Collections;
 import java.util.List;
-import java.util.Set;
 
 public record Evidence(PredicateBitmap predicates, int multiplicity) {
     public boolean contains(Predicate<?> p) {
@@ -36,7 +34,7 @@ public record Evidence(PredicateBitmap predicates, int multiplicity) {
     public static boolean satisfies(List<Predicate<?>> list, List<Evidence> er, int errorThreshold) {
         PredicateBitmap dc = new PredicateBitmap();
         for (Predicate<?> p : list) {
-            dc.set(p.index);
+            dc.set(p.identifier);
         }
         return satisfies(dc, er, errorThreshold);
     }
