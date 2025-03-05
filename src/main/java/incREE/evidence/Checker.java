@@ -4,6 +4,7 @@ import incREE.dataset.Relation;
 
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 public class Checker {
@@ -19,12 +20,10 @@ public class Checker {
             throw new IllegalArgumentException("List1 contains duplicate elements.");
         }
 
-        // 检查 list2 是否有重复元素
         if (hasDuplicates(list2)) {
             throw new IllegalArgumentException("List2 contains duplicate elements.");
         }
 
-        // 检查两个 List 是否包含相同的元素
         if (!new HashSet<>(list1).equals(new HashSet<>(list2))) {
             throw new IllegalArgumentException("Lists do not contain the same elements.");
         }
@@ -47,5 +46,16 @@ public class Checker {
             }
         }
         System.out.println("Inconsistent percent of " + dc + ": " + inconsistent / relation.getTotalTuplePairs());
+    }
+
+    public static boolean checkEvidenceSet(Map<PredicateBitmap, Integer> e1, Map<PredicateBitmap, Integer> e2) {
+        for (Map.Entry<PredicateBitmap, Integer> entry : e1.entrySet()) {
+            Integer count = e2.getOrDefault(entry.getKey(), 0);
+            if (!entry.getValue().equals(count)) {
+                System.out.println("Inconsistent percent of " + entry.getKey() + ": " + entry.getValue());
+                return false;
+            }
+        }
+        return true;
     }
 }

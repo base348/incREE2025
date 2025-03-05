@@ -7,7 +7,7 @@ import java.util.*;
 public class Column<T extends Comparable<T>> {
     public String name;
     private int size = 0;
-    private final Map<T, TreeSet<Integer>> PLI;
+    private final TreeMap<T, TreeSet<Integer>> PLI;
     private final List<T> values = new ArrayList<>();
     public final RawColumn.Type type;
     private int currentLineNumber;
@@ -56,7 +56,7 @@ public class Column<T extends Comparable<T>> {
         }
     }
 
-    public Map<T, TreeSet<Integer>> getPLI(int aimLineNumber) {
+    public TreeMap<T, TreeSet<Integer>> getPLI(int aimLineNumber) {
         if (aimLineNumber < this.size) {
             throw new IllegalArgumentException("Column.getPLI: currentLineNumber > " + aimLineNumber + ", maybe you want delete tuples.");
         } else {

@@ -1,6 +1,7 @@
 package incREE.dataset;
 
 import incREE.evidence.Predicate;
+import incREE.evidence.PredicateBitmap;
 import incREE.evidence.PredicateGroup;
 
 import java.util.ArrayList;
@@ -28,16 +29,7 @@ public class Relation {
             attributeNames.add(attribute.name);
         }
 
-        List<ColumnPair> columnPairs = new ArrayList<>();
-        for (int i = 0; i < attributeCount; i++) {
-            for (int j = i; j < attributeCount; j++) {
-                Column<?> attribute = attributes.get(i);
-                Column<?> attribute2 = attributes.get(j);
-                if (attribute.type.equals(attribute2.type)) {
-                    columnPairs.add(new ColumnPair(attribute, attribute2));
-                }
-            }
-        }
+        List<ColumnPair> columnPairs = getColumnPairs(attributes);
 
         Map<Boolean, List<ColumnPair>> partitioned = columnPairs.stream().filter(
                 columnPair -> columnPair.firstColumn().getSharedPercentage(columnPair.secondColumn()) > MINIMUM_SHARED_VALUE
@@ -56,6 +48,24 @@ public class Relation {
             predicateGroups.add(new PredicateGroup(PredicateGroup.Type.NUMERIC, predicateSpace, length, columnPair));
             length += 6;
         }
+    }
+
+    private List<ColumnPair> getColumnPairs(List<Column<?>> attributes) {
+        List<ColumnPair> columnPairs = new ArrayList<>();
+        // Reflexive
+        for (Column<?> column : attributes) {
+            columnPairs.add(new ColumnPair(column, column));
+        }
+        for (int i = 0; i < attributeCount; i++) {
+            for (int j = i+1; j < attributeCount; j++) {
+                Column<?> attribute = attributes.get(i);
+                Column<?> attribute2 = attributes.get(j);
+                if (attribute.type.equals(attribute2.type)) {
+                    columnPairs.add(new ColumnPair(attribute, attribute2));
+                }
+            }
+        }
+        return columnPairs;
     }
 
     public int getTuplePairId(int tidX, int tidY) {
@@ -98,16 +108,12 @@ public class Relation {
         return (tpId % (currentSize + 1) == 0);
     }
 
-
-    public <T extends Comparable<T>> boolean satisfies(int tpId, Predicate<T> predicate) {
+    public <T extends Comparable<T>> boolean satisfies(int idX, int idY, Predicate<T> predicate) {
         Column<T> attribute1 = predicate.attribute1;
         Column<T> attribute2 = predicate.attribute2;
         if (!attribute1.type.equals(attribute2.type)) {
             throw new IllegalArgumentException("Invalid predicate: " + predicate + " has different types of attributes.");
         }
-
-        int idX = tpId / currentSize;
-        int idY = tpId % currentSize;
 
         T o1 = attribute1.get(idX);
         T o2 = attribute2.get(idY);
@@ -121,6 +127,23 @@ public class Relation {
             };
             case LONG, NUMERIC -> predicate.operator.compareAttributes(o1, o2);
         };
+    }
+
+    public boolean satisfies(int tpId, Predicate<?> predicate) {
+        int idX = tpId / currentSize;
+        int idY = tpId % currentSize;
+        return satisfies(idX, idY, predicate);
+    }
+
+    public boolean satisfies(int idX, int idY, PredicateBitmap predicateBitmap) {
+        for (Predicate<?> predicate : predicateSpace) {
+            boolean result = satisfies(idX, idY, predicate);
+            boolean set = predicateBitmap.get(predicate.identifier);
+            if ((!set && result) || (set && !result)) {
+                return false;
+            }
+        }
+        return true;
     }
 
 

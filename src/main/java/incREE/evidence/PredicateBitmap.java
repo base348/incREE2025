@@ -56,5 +56,8 @@ public class PredicateBitmap {
     public void set(int index) {
         bitset.set(index);
     }
-    
+
+    public boolean get(int index) {
+        return bitset.get(index);
+    }
 }

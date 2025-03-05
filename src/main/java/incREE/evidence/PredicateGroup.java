@@ -35,6 +35,7 @@ public class PredicateGroup {
     private final int offset;
     private final int length;
     private final List<Predicate<?>> allPredicates;
+    private final boolean isReflexive;
 
     public PredicateGroup(Type type, List<Predicate<?>> allPredicates, int offset, ColumnPair columnPair) {
         this.type = type;
@@ -56,6 +57,11 @@ public class PredicateGroup {
         }
 
         this.allPredicates = allPredicates;
+        this.isReflexive = columnPair.isReflexive();
+    }
+
+    public boolean isReflexive() {
+        return isReflexive;
     }
 
     /**
@@ -72,6 +78,22 @@ public class PredicateGroup {
         } else {
             // OperatorGroup.NOT_EQUAL
             bitSet.set(offset + 1);
+        }
+    }
+
+    public void setSymmetry(PredicateBitmap bitSet, BitSet aim) {
+        if (this.isReflexive() && this.type.equals(Type.NUMERIC)) {
+            // > < ≥ ≤
+            if (bitSet.get(offset)) aim.set(offset);
+            if (bitSet.get(offset + 1)) aim.set(offset + 1);
+            if (bitSet.get(offset + 2)) aim.set(offset + 3);
+            if (bitSet.get(offset + 3)) aim.set(offset + 2);
+            if (bitSet.get(offset + 4)) aim.set(offset + 5);
+            if (bitSet.get(offset + 5)) aim.set(offset + 4);
+        } else {
+            for (int i = 0; i < this.length; i++) {
+                if (bitSet.get(offset + i)) aim.set(offset + i);
+            }
         }
     }
 

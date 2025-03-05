@@ -39,6 +39,8 @@ public class EvidenceSetBuilder {
         return pairs;
     }
 
+//    public static
+
     /**
      * Use PLI to find inconsistent TuplePairs
      * @param operatorGroup EQUAL or GREATER_THAN
@@ -136,16 +138,14 @@ public class EvidenceSetBuilder {
         return evidenceSet;
     }
 
-    public List<Evidence> collect() {
+    public Map<PredicateBitmap, Integer> collect() {
         Map<PredicateBitmap, Integer> evidenceMap = new HashMap<>();
-        List<Evidence> degenerateEvidenceSet = new ArrayList<>();
         for (int i = 0; i < maxTPId; i++) {
             if (!relation.isReflexive(i)) {
                 PredicateBitmap evidence = evidenceSet.get(i).copy();
                 evidenceMap.merge(evidence, 1, Integer::sum);
             }
         }
-        evidenceMap.forEach((k, v) -> degenerateEvidenceSet.add(new Evidence(k, v)));
-        return degenerateEvidenceSet;
+        return evidenceMap;
     }
 }

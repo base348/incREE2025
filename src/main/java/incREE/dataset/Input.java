@@ -6,14 +6,12 @@ import java.util.List;
 import java.util.Scanner;
 
 public class Input {
-    private final int currentLinesNum;
     private Scanner scanner;
     private int lineCount = 0;
     private final int columnCount;
     private final String[] header;
 
-    public Input(String fileName, int currentLinesNum) {
-        this.currentLinesNum = currentLinesNum;
+    public Input(String fileName) {
         try {
             InputStream inputStream = getClass().getClassLoader().getResourceAsStream(fileName);
             if (inputStream == null) {
@@ -31,10 +29,10 @@ public class Input {
         columnCount = header.length;
     }
 
-    private List<RawColumn> readLines() {
+    private List<RawColumn> readLines(int count) {
         List<RawColumn> rawColumns = new ArrayList<RawColumn>();
         for (String s : header) {
-            rawColumns.add(new RawColumn(s, currentLinesNum));
+            rawColumns.add(new RawColumn(s, count));
         }
         while (scanner.hasNextLine()) {
             String line = scanner.nextLine();
@@ -44,18 +42,19 @@ public class Input {
             }
             lineCount++;
         }
+        scanner.close();
         return rawColumns;
     }
 
-    public Relation getRelation() {
-        List<RawColumn> rawColumns = readLines();
+    public Relation getRelation(int line) {
+        List<RawColumn> rawColumns = readLines(line);
         List<Column<?>> columns = new ArrayList<>(columnCount);
         for (int i = 0; i < columnCount; i++) {
             columns.add(rawColumns.get(i).build(lineCount));
         }
-        if (lineCount < currentLinesNum) {
+        if (lineCount < line) {
             throw new IndexOutOfBoundsException();
         }
-        return new Relation(columns, currentLinesNum, lineCount);
+        return new Relation(columns, line, lineCount);
     }
 }
