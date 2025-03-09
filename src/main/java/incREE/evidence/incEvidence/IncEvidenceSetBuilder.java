@@ -30,11 +30,11 @@ public class IncEvidenceSetBuilder {
         return new PredicateBitmap(bitSet);
     }
 
-    public IncEvidenceSetBuilder(Relation relation, Map<PredicateBitmap, Integer> currentEvidence,  int incTupleSize) {
+    public IncEvidenceSetBuilder(Relation relation, int incTupleSize) {
         this.relation = relation;
         this.predicateGroups = relation.predicateGroups;
         this.currentTupleSize = relation.currentSize;
-        this.evidenceMap = currentEvidence;
+        this.evidenceMap = new HashMap<>();
         this.incTupleSize = incTupleSize;
     }
 

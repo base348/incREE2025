@@ -13,6 +13,14 @@ public class PredicateBitmap {
         bitset = new BitSet();
     }
 
+    public BitSet getBitSet() {
+        return bitset;
+    }
+
+    public void setBitSet(BitSet bitset) {
+        this.bitset = bitset;
+    }
+
     public boolean contains(Predicate<?> predicate) {
         return bitset.get(predicate.identifier);
     }
@@ -39,6 +47,11 @@ public class PredicateBitmap {
         } else return bitset.equals(other.bitset);
     }
 
+    @Override
+    public String toString() {
+        return bitset.toString();
+    }
+
     public boolean disjoint(PredicateBitmap other) {
         BitSet copy = (BitSet) other.bitset.clone();
         copy.and(bitset);
@@ -59,5 +72,11 @@ public class PredicateBitmap {
 
     public boolean get(int index) {
         return bitset.get(index);
+    }
+
+    public boolean isSubset(PredicateBitmap other) {
+        BitSet clone = (BitSet) bitset.clone();
+        clone.and(other.bitset);
+        return clone.equals(bitset);
     }
 }

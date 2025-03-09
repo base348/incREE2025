@@ -4,13 +4,14 @@ import incREE.dataset.Relation;
 import incREE.evidence.Evidence;
 import incREE.evidence.EvidenceSetBuilder;
 import incREE.evidence.Predicate;
+import incREE.evidence.PredicateBitmap;
 
 import java.util.*;
 
 public class DCFinder {
 
     private static final int MAX_DC_NUM = 200;
-    private static final int MAX_DC_LENGTH = 5;
+    private static final int MAX_DC_LENGTH = 3;
 
     private final double errorThreshold;
     private final List<Predicate<?>> predicateSpace;
@@ -20,6 +21,18 @@ public class DCFinder {
         this.errorThreshold = errorRateThreshold * totalTuplePairsNum;
         this.predicateSpace = predicateSpace;
         this.er = er;
+    }
+
+    public DCFinder(double errorRateThreshold, int totalTuplePairsNum, List<Predicate<?>> predicateSpace, Map<PredicateBitmap, Integer> evidenceMap) {
+        this.errorThreshold = errorRateThreshold * totalTuplePairsNum;
+        this.predicateSpace = predicateSpace;
+        this.er = toList(evidenceMap);
+    }
+
+    private static List<Evidence> toList(Map<PredicateBitmap, Integer> evidenceMap) {
+        List<Evidence> evidenceList = new ArrayList<>();
+        evidenceMap.forEach((k, v) -> evidenceList.add(new Evidence(k, v)));
+        return evidenceList;
     }
 
     private <T> boolean isSubset(List<T> subset, List<T> set) {
