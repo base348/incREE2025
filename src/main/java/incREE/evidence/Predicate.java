@@ -89,9 +89,12 @@ public class Predicate<T extends Comparable<T>> {
 
     @Override
     public String toString() {
-//        return String.format("tx.%s %s ty.%s", attribute1,
-//                operator, attribute2);
         return String.format("p%d", identifier);
+    }
+
+    public String getNegativeExpression() {
+        return String.format("tx.%s %s ty.%s", attribute1,
+                operator.negation(), attribute2);
     }
 
     @Override

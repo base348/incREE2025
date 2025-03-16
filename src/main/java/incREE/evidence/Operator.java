@@ -2,7 +2,7 @@ package incREE.evidence;
 
 public enum Operator {
     EQUAL("=", 0),
-    NOT_EQUAL("≠", 1),
+    NOT_EQUAL("!=", 1),
     GREATER_THAN(">", 2),
     LESS_THAN("<", 3),
     GREATER_THAN_OR_EQUAL("≥", 4),

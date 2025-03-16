@@ -49,7 +49,8 @@ public class PredicateBitmap {
 
     @Override
     public String toString() {
-        return bitset.toString();
+        String bitsetString = bitset.toString();
+        return bitsetString.substring(1, bitsetString.length() - 1);
     }
 
     public boolean disjoint(PredicateBitmap other) {
@@ -78,5 +79,17 @@ public class PredicateBitmap {
         BitSet clone = (BitSet) bitset.clone();
         clone.and(other.bitset);
         return clone.equals(bitset);
+    }
+
+    public boolean isEmpty() {
+        return bitset.isEmpty();
+    }
+
+    public int size() {
+        return bitset.cardinality();
+    }
+
+    public int nextSetBit(int n) {
+        return bitset.nextSetBit(n);
     }
 }

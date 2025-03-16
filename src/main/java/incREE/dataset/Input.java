@@ -1,32 +1,47 @@
 package incREE.dataset;
 
+import incREE.evidence.PredicateBitmap;
+
+import java.io.BufferedReader;
+import java.io.FileReader;
+import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
+import java.util.BitSet;
 import java.util.List;
 import java.util.Scanner;
 
 public class Input {
     private Scanner scanner;
+    private BufferedReader  bufferedReader;
     private int lineCount = 0;
-    private final int columnCount;
-    private final String[] header;
+    private int columnCount;
+    private String[] header;
 
     public Input(String fileName) {
+//        try {
+//            InputStream inputStream = getClass().getClassLoader().getResourceAsStream(fileName);
+//            if (inputStream == null) {
+//                System.out.println("Input failed: file not found: " + fileName);
+//                System.exit(1);
+//            } else {
+//                scanner = new Scanner(inputStream);
+//            }
+//        } catch (Exception e) {
+//            System.out.println("Input failed: file not found: " + fileName);
+//            System.exit(1);
+//        }
+//
+//        header = scanner.nextLine().split(",");
+//        columnCount = header.length;
         try {
-            InputStream inputStream = getClass().getClassLoader().getResourceAsStream(fileName);
-            if (inputStream == null) {
-                System.out.println("File not found: " + fileName);
-                System.exit(1);
-            } else {
-                scanner = new Scanner(inputStream);
-            }
-        } catch (Exception e) {
-            System.out.println("File not found: " + fileName);
+            bufferedReader = new BufferedReader(new FileReader(fileName));
+            header = bufferedReader.readLine().split(",");
+            columnCount = header.length;
+        } catch (IOException e) {
+            System.out.println("Input failed: file not found: " + fileName);
             System.exit(1);
         }
-
-        header = scanner.nextLine().split(",");
-        columnCount = header.length;
     }
 
     private List<RawColumn> readLines(int count) {
@@ -34,15 +49,19 @@ public class Input {
         for (String s : header) {
             rawColumns.add(new RawColumn(s, count));
         }
-        while (scanner.hasNextLine()) {
-            String line = scanner.nextLine();
-            String[] columns = line.split(",");
-            for (int i = 0; i < columns.length; i++) {
-                rawColumns.get(i).addLine(columns[i]);
+        try {
+            String line;
+            while ((line = bufferedReader.readLine()) != null) {
+                String[] columns = line.split(",");
+                for (int i = 0; i < columns.length; i++) {
+                    rawColumns.get(i).addLine(columns[i]);
+                }
+                lineCount++;
             }
-            lineCount++;
+        } catch (IOException e) {
+            System.out.println("Input failed: line not found: " + lineCount);
         }
-        scanner.close();
+        bufferedReader = null;
         return rawColumns;
     }
 

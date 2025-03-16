@@ -36,6 +36,7 @@ public class PredicateGroup {
     private final int length;
     private final List<Predicate<?>> allPredicates;
     private final boolean isReflexive;
+    public final BitSet bits = new BitSet();
 
     public PredicateGroup(Type type, List<Predicate<?>> allPredicates, int offset, ColumnPair columnPair) {
         this.type = type;
@@ -58,10 +59,42 @@ public class PredicateGroup {
 
         this.allPredicates = allPredicates;
         this.isReflexive = columnPair.isReflexive();
+        this.bits.set(offset, offset+length);
     }
 
     public boolean isReflexive() {
         return isReflexive;
+    }
+
+    public int contains(int predicate) {
+        if (predicate < this.offset) {
+            return -1;
+        }  else if (predicate >= this.offset + this.length) {
+            return 1;
+        }  else {
+            return 0;
+        }
+    }
+
+    public static PredicateGroup findGroup(int predicate, List<PredicateGroup> predicateGroups) {
+        //  TODO: use binary search
+//        int left = 0;
+//        int right = predicateGroups.size();
+//        while (left < right) {
+//            int mid = left + (right - left) / 2;
+//            int contain = predicateGroups.get(mid).contains(predicate);
+//            if (contain == -1) {
+//                 = mid;
+//            } else if (contain == 1) {
+//                left = mid + 1;
+//            }
+//        }
+        for (PredicateGroup predicateGroup : predicateGroups) {
+            if (predicateGroup.contains(predicate) == 0) {
+                return predicateGroup;
+            }
+        }
+        throw new IllegalArgumentException("No predicate group found");
     }
 
     /**
@@ -142,5 +175,9 @@ public class PredicateGroup {
         }
 
         return new PredicateBitmap(bitSet);
+    }
+
+    public int getAllPredicatesNum() {
+        return allPredicates.size();
     }
 }
