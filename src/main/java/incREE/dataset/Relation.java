@@ -12,6 +12,7 @@ import java.util.stream.Collectors;
 
 public class Relation {
     private static final double MINIMUM_SHARED_VALUE = 0.3d;
+    public final String name;
     public int currentSize; // After currentSize updated, previous TuplePairId can never be used
     public final int totalSize;
     public List<String> attributeNames = new ArrayList<String>();
@@ -20,7 +21,8 @@ public class Relation {
     public final List<Predicate<?>> predicateSpace = new ArrayList<>();
     public final List<PredicateGroup> predicateGroups = new ArrayList<>();
 
-    public Relation(List<Column<?>> attributes, int currentSize, int totalSize) {
+    public Relation(String name, List<Column<?>> attributes, int currentSize, int totalSize) {
+        this.name = name;
         this.attributes = attributes;
         this.currentSize = currentSize;
         this.totalSize = totalSize;
@@ -28,26 +30,37 @@ public class Relation {
         for (Column<?> attribute : attributes) {
             attributeNames.add(attribute.name);
         }
+    }
 
+    public void buildPredicateSpace() {
         List<ColumnPair> columnPairs = getColumnPairs(attributes);
+        buildPredicateSpace(columnPairs);
+    }
 
-        Map<Boolean, List<ColumnPair>> partitioned = columnPairs.stream().filter(
-                columnPair -> columnPair.firstColumn().getSharedPercentage(columnPair.secondColumn()) > MINIMUM_SHARED_VALUE
-        ).collect(
-                Collectors.partitioningBy(columnPair -> columnPair.firstColumn().type == RawColumn.Type.STRING)
-        );
-
-        List<ColumnPair> stringColumnPairs = partitioned.get(true);
+    public void buildPredicateSpace(List<ColumnPair> columnPairs) {
         int length = 0;
-        for (ColumnPair columnPair : stringColumnPairs) {
-            predicateGroups.add(new PredicateGroup(PredicateGroup.Type.STRING, predicateSpace, length, columnPair));
-            length += 2;
+        for (ColumnPair columnPair : columnPairs) {
+            PredicateGroup newGroup;
+            int newLength = 0;
+            if (columnPair.firstColumn().type == RawColumn.Type.STRING) {
+                newGroup = new PredicateGroup(PredicateGroup.Type.STRING, predicateSpace, length, columnPair);
+                newLength = 2;
+            } else {
+                newGroup = new PredicateGroup(PredicateGroup.Type.NUMERIC, predicateSpace, length, columnPair);
+                newLength = 6;
+            }
+            predicateGroups.add(newGroup);
+            length += newLength;
+
+            if (!newGroup.isReflexive()) {
+                predicateGroups.add(newGroup.getReversed());
+                length += newLength;
+            }
         }
-        List<ColumnPair> numericColumnPairs = partitioned.get(false);
-        for (ColumnPair columnPair : numericColumnPairs) {
-            predicateGroups.add(new PredicateGroup(PredicateGroup.Type.NUMERIC, predicateSpace, length, columnPair));
-            length += 6;
-        }
+    }
+
+    public List<PredicateGroup> loadPredicateSpace() {
+
     }
 
     private List<ColumnPair> getColumnPairs(List<Column<?>> attributes) {
@@ -56,16 +69,22 @@ public class Relation {
         for (Column<?> column : attributes) {
             columnPairs.add(new ColumnPair(column, column));
         }
+
+        // Not Reflexive
         for (int i = 0; i < attributeCount; i++) {
             for (int j = i+1; j < attributeCount; j++) {
                 Column<?> attribute = attributes.get(i);
                 Column<?> attribute2 = attributes.get(j);
-                if (attribute.type.equals(attribute2.type)) {
+                if (comparable(attribute, attribute2)) {
                     columnPairs.add(new ColumnPair(attribute, attribute2));
                 }
             }
         }
         return columnPairs;
+    }
+
+    private boolean comparable(Column<?> column1, Column<?> column2) {
+        return column1.type.equals(column2.type) && column1.getSharedPercentage(column2) > MINIMUM_SHARED_VALUE;
     }
 
     public int getTuplePairId(int tidX, int tidY) {

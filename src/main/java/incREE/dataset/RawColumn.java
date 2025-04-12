@@ -8,7 +8,13 @@ import java.util.List;
 public class RawColumn {
 
     public enum Type {
-        STRING, NUMERIC, LONG
+        STRING(0), LONG(1), NUMERIC(2);
+
+        public final int value;
+
+        Type(int value) {
+            this.value = value;
+        }
     }
 
     private final String name;
@@ -41,7 +47,11 @@ public class RawColumn {
 
 
     public Long getLong(int line) {
-        return Long.valueOf(values.get(line));
+        try {
+            return Long.valueOf(values.get(line));
+        } catch (NumberFormatException e) {
+            return Long.MIN_VALUE;
+        }
     }
 
     public Double getDouble(int line) {

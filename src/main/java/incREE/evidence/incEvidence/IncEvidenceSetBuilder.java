@@ -23,11 +23,11 @@ public class IncEvidenceSetBuilder {
     private static final TreeSet<Integer> EMPTY_SET = new TreeSet<>();
 
     private PredicateBitmap getEvidenceHead() {
-        BitSet bitSet = new BitSet(relation.predicateSpace.size());
+        PredicateBitmap head = new PredicateBitmap();
         for (PredicateGroup predicateGroup : relation.predicateGroups) {
-            predicateGroup.setHead(bitSet);
+            head.or(predicateGroup.head);
         }
-        return new PredicateBitmap(bitSet);
+        return head;
     }
 
     public IncEvidenceSetBuilder(Relation relation, int incTupleSize) {
@@ -55,11 +55,11 @@ public class IncEvidenceSetBuilder {
     }
 
     private EvidenceContext symmetryCopy(EvidenceContext context) {
-        BitSet bitSet = new BitSet(relation.predicateSpace.size());
+        PredicateBitmap copy = new PredicateBitmap();
         for (PredicateGroup predicateGroup : relation.predicateGroups) {
-            predicateGroup.setSymmetry(context.evidence(), bitSet);
+            predicateGroup.setSymmetry(context.evidence(), copy);
         }
-        return new EvidenceContext(context.tidLeft(), (BitSet) context.tidRight().clone(), new PredicateBitmap(bitSet));
+        return new EvidenceContext(context.tidLeft(), (BitSet) context.tidRight().clone(), copy);
     }
 
     private List<EvidenceContext> symmetryDeepCopyContexts(List<EvidenceContext> contexts) {

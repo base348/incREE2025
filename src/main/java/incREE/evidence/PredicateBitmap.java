@@ -1,24 +1,26 @@
 package incREE.evidence;
 
+import ch.javasoft.bitset.BitSetFactory;
+import ch.javasoft.bitset.IBitSet;
+import ch.javasoft.bitset.LongBitSet.LongBitSetFactory;
+
 import java.util.BitSet;
 
 public class PredicateBitmap {
-    protected BitSet bitset;
 
-    public PredicateBitmap(BitSet bitset) {
-        this.bitset = (BitSet) bitset.clone();
+    private static BitSetFactory bf = new LongBitSetFactory();
+    protected IBitSet bitset;
+
+    public PredicateBitmap(IBitSet bitset) {
+        this.bitset = bitset.clone();
     }
 
     public PredicateBitmap() {
-        bitset = new BitSet();
+        bitset = bf.create();
     }
 
-    public BitSet getBitSet() {
+    public IBitSet getBitSet() {
         return bitset;
-    }
-
-    public void setBitSet(BitSet bitset) {
-        this.bitset = bitset;
     }
 
     public boolean contains(Predicate<?> predicate) {
@@ -54,9 +56,7 @@ public class PredicateBitmap {
     }
 
     public boolean disjoint(PredicateBitmap other) {
-        BitSet copy = (BitSet) other.bitset.clone();
-        copy.and(bitset);
-        return !copy.isEmpty();
+        return bitset.getAndCardinality(other.bitset) > 0;
     }
 
     public PredicateBitmap copy() {
@@ -71,14 +71,30 @@ public class PredicateBitmap {
         bitset.set(index);
     }
 
+    public void set(int index, boolean value) {
+        bitset.set(index, value);
+    }
+
+    public void set(int start, int end) {
+        for (int i = start; i < end; i++) {
+            bitset.set(i);
+        }
+    }
+
     public boolean get(int index) {
         return bitset.get(index);
     }
 
-    public boolean isSubset(PredicateBitmap other) {
-        BitSet clone = (BitSet) bitset.clone();
-        clone.and(other.bitset);
-        return clone.equals(bitset);
+    public void andNot(PredicateBitmap other) {
+        bitset.andNot(other.bitset);
+    }
+
+    public void or(PredicateBitmap other) {
+        bitset.or(other.bitset);
+    }
+
+    public boolean isSubsetOf(PredicateBitmap other) {
+        return bitset.isSubSetOf(other.bitset);
     }
 
     public boolean isEmpty() {

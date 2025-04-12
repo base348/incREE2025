@@ -92,11 +92,11 @@ public class EvidenceSetBuilder {
     }
 
     private PredicateBitmap getEvidenceHead() {
-        BitSet bitSet = new BitSet(relation.predicateSpace.size());
+        PredicateBitmap head = new PredicateBitmap();
         for (PredicateGroup predicateGroup : relation.predicateGroups) {
-            predicateGroup.setHead(bitSet);
+            head.or(predicateGroup.head);
         }
-        return new PredicateBitmap(bitSet);
+        return head;
     }
 
     public void buildEvidenceSet() {

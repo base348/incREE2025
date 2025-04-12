@@ -14,9 +14,9 @@ import java.util.*;
 
 public class Main {
 
-    private static final int CURRENT_LINES = 4;
-    private static final int INC_LINES = 2500;
-    private static final String FILENAME = "staff";
+    private static final int CURRENT_LINES = 20000;
+    private static final int INC_LINES = 20000;
+    private static final String FILENAME = "atom";
 
     private static void saveEvidence(String filename, Map<PredicateBitmap, Integer> evidence) {
 
@@ -55,12 +55,11 @@ public class Main {
         try (BufferedReader reader = new BufferedReader(new FileReader(filename))) {
             String line;
             while ((line = reader.readLine()) != null) {
-                BitSet bitset = new BitSet();
+                PredicateBitmap key = new PredicateBitmap();
                 String[] parts = line.split(",");
                 for (int i = 1; i < parts.length; i++) {
-                    bitset.set(Integer.parseInt(parts[i].trim()));
+                    key.set(Integer.parseInt(parts[i].trim()));
                 }
-                PredicateBitmap key = new PredicateBitmap(bitset);
                 evidence.put(key, Integer.parseInt(parts[0].trim()));
             }
         } catch (IOException e) {
@@ -72,15 +71,15 @@ public class Main {
 
     private static void writeExpression(String filename) {
         List<PredicateBitmap> cover = new ArrayList<>();
-        try (BufferedReader reader = new BufferedReader(new FileReader(filename + "_DC.csv"))) {
+        try (BufferedReader reader = new BufferedReader(new FileReader(filename + "_Cover.csv"))) {
             String line;
             while ((line = reader.readLine()) != null) {
-                BitSet bitset = new BitSet();
+                PredicateBitmap bitset = new PredicateBitmap();
                 String[] parts = line.split(",");
-                for (int i = 0; i < parts.length; i++) {
-                    bitset.set(Integer.parseInt(parts[i].trim()));
+                for (String part : parts) {
+                    bitset.set(Integer.parseInt(part.trim()));
                 }
-                cover.add(new PredicateBitmap(bitset));
+                cover.add(bitset);
             }
         } catch (IOException e) {
             System.out.println("File " + filename  + " not found.");
@@ -184,16 +183,36 @@ public class Main {
 
     private static Map<PredicateBitmap, Integer> buildIncEvidenceSet(String filename) {
         Input input = new Input(filename + ".csv");
-        Relation r = input.getRelation(CURRENT_LINES);
+        Relation r = input.getRelation(CURRENT_LINES, INC_LINES);
         IncEvidenceSetBuilder builder = new IncEvidenceSetBuilder(r, INC_LINES);
         return builder.build();
+    }
+
+    private static void saveColumnPairs() {
+        Input input = new Input(FILENAME + ".csv");
+        Relation r = input.getRelation(CURRENT_LINES + INC_LINES);
+        r.buildPredicateSpace();
+        List<PredicateGroup> predicateGroups = r.predicateGroups;
+
+        StringBuilder builder = new StringBuilder();
+        for (PredicateGroup predicateGroup : predicateGroups) {
+            builder.append(predicateGroup.toString());
+            builder.append(System.lineSeparator());
+        }
+        System.out.println("Saving predicate groups.");
+        try (FileWriter writer = new FileWriter(FILENAME + "_ColumnGroups.csv")) {
+            writer.write(builder.toString());
+        } catch (IOException e) {
+            System.out.println("File " + FILENAME  + " not found.");
+            throw new RuntimeException(e);
+        }
     }
 
     private static void findCover(String filename) {
         try {
             Map<PredicateBitmap, Integer> evidence = loadEvidence(evidenceFileName(filename, CURRENT_LINES));
             Input input = new Input(filename + ".csv");
-            Relation r = input.getRelation(CURRENT_LINES);
+            Relation r = input.getRelation(0);
             CoverFinder coverFinder = new CoverFinder(0, r.getTotalTuplePairs(), evidence, r.predicateGroups);
             List<PredicateBitmap> cover = coverFinder.findCover();
             System.out.println("Cover find complete.");
@@ -206,12 +225,13 @@ public class Main {
     public static void main(String[] args) {
         long startTime = System.currentTimeMillis();
 
-//        buildEvidenceSetAndSave(FILENAME);
-        findCover(FILENAME);
-        writeExpression(FILENAME);
+        saveColumnPairs();
+//        mergeAndSave(FILENAME);
+//        findCover(FILENAME);
+//        writeExpression(FILENAME);
 
         long endTime = System.currentTimeMillis();
         long elapsedTime = endTime - startTime;
-        System.out.println("Evidence Set build complete in " + elapsedTime + " ms.");
+        System.out.println("Complete in " + elapsedTime + " ms.");
     }
 }

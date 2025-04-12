@@ -50,7 +50,8 @@ public class Column<T extends Comparable<T>> {
             Set<T> keys = PLI.keySet();
             Set<T> keys2 = (Set<T>) column.PLI.keySet();
             Set<T> intersection = Sets.intersection(keys, keys2);
-            return intersection.size() / (double) Math.min(keys.size(), keys2.size());
+            double share = intersection.size() / (double) Math.min(keys.size(), keys2.size());
+            return share;
         } else {
             return 0;
         }

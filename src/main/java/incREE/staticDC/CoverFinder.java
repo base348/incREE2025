@@ -46,15 +46,9 @@ public class CoverFinder {
         return evidenceList;
     }
 
-    private boolean isSubset(PredicateBitmap subset, PredicateBitmap set) {
-        BitSet temp = (BitSet) subset.getBitSet().clone();
-        temp.and(set.getBitSet());
-        return temp.equals(subset.getBitSet());
-    }
-
     private boolean isImplied(PredicateBitmap q, List<PredicateBitmap> cover) {
         for (PredicateBitmap c : cover) {
-            if (isSubset(c, q)) {
+            if (c.isSubsetOf(q)) {
                 return true;
             }
         }
@@ -74,7 +68,7 @@ public class CoverFinder {
     }
 
     private void findCover(PredicateBitmap pPath, List<Evidence> uncoveredEvidence, PredicateBitmap pForward, List<PredicateBitmap> cover) {
-        System.out.println(pPath);
+//        System.out.println(pPath);
         if (Evidence.size(uncoveredEvidence) <= errorThreshold) {
             if (isMinimal(pPath)) {
                 cover.add(pPath);
@@ -90,7 +84,7 @@ public class CoverFinder {
                 int coverageCount = 0;
                 for (Evidence e : uncoveredEvidence) {
                     if (e.predicates().get(i)) {
-                        coverageCount += e.multiplicity();
+                        coverageCount += 1;
                     }
                 }
                 coverage.add(new IntegerPair(coverageCount, i));
@@ -108,8 +102,12 @@ public class CoverFinder {
                 uncoveredEvidenceNew.removeIf(evidence -> evidence.predicates().get(p.right));
                 PredicateBitmap pForwardNew = pForward.copy();
 
+                // remove all predicate from the same group
                 PredicateGroup group = PredicateGroup.findGroup(p.right, predicateGroups);
-                pForwardNew.getBitSet().andNot(group.bits);
+                pForwardNew.andNot(group.bits);
+
+                pForward.getBitSet().set(p.right, false);
+
                 findCover(pPathNew, uncoveredEvidenceNew, pForwardNew, cover);
                 if (AIM_DC_NUM > 0 && cover.size() >= AIM_DC_NUM) {
                     return;
@@ -122,10 +120,9 @@ public class CoverFinder {
         try {
             System.setOut(new PrintStream(new FileOutputStream("log.txt")));
             List<PredicateBitmap> cover = new ArrayList<>();
-            PredicateBitmap q = new PredicateBitmap(new BitSet());
-            BitSet allPredicate = new BitSet(predicateNum);
-            allPredicate.set(0, predicateNum);
-            PredicateBitmap pForward = new PredicateBitmap(allPredicate);
+            PredicateBitmap q = new PredicateBitmap();
+            PredicateBitmap pForward = new PredicateBitmap();
+            pForward.set(0, predicateNum);
             findCover(q, er, pForward, cover);
             return cover;
         } catch (FileNotFoundException e) {

@@ -1,6 +1,5 @@
 package incREE.incDC;
 
-import incREE.evidence.Evidence;
 import incREE.evidence.Predicate;
 import incREE.evidence.PredicateBitmap;
 
@@ -15,11 +14,11 @@ public class DynEI {
     private static List<PredicateBitmap> toBitmap(List<List<Predicate<?>>> dcs) {
         List<PredicateBitmap> bitmaps = new ArrayList<PredicateBitmap>();
         for (List<Predicate<?>> dc : dcs) {
-            BitSet bits = new BitSet();
+            PredicateBitmap bits = new PredicateBitmap();
             for (Predicate<?> p : dc) {
                 bits.set(p.identifier);
             }
-            bitmaps.add(new PredicateBitmap(bits));
+            bitmaps.add(bits);
         }
         return bitmaps;
     }
@@ -33,7 +32,7 @@ public class DynEI {
 
     private static boolean isImplied(PredicateBitmap dc, List<PredicateBitmap> cover) {
         for (PredicateBitmap pb : cover) {
-            if (pb.isSubset(dc)) {
+            if (pb.isSubsetOf(dc)) {
                 return true;
             }
         }
@@ -47,7 +46,7 @@ public class DynEI {
         for (PredicateBitmap e : incEvidenceSet) {
             List<PredicateBitmap> DCInv = new ArrayList<>();
             for (PredicateBitmap dc : DCCurrent) {
-                if (dc.isSubset(e)) {
+                if (dc.isSubsetOf(e)) {
                     DCInv.add(dc);
                 }
             }

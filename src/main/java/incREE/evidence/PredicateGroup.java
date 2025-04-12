@@ -19,9 +19,9 @@ public class PredicateGroup {
      * Predicate from the same group can not combine freely.
      * There are 2 cases for STRING: EQUAL or NOT_EQUAL.
      * There are only 3 cases for NUMERIC: EQUAL, GREATER_THAN or LESS_THAN.
-     * EQUAL includes predicate = ≠ ≤
-     * GREATER includes predicate ≠ > ≥
-     * LESS_THAN includes predicate ≠ < ≤
+     * EQUAL includes predicate = >= <=
+     * GREATER includes predicate != > >=
+     * LESS_THAN includes predicate != < <=
      */
     public enum OperatorGroup {
         EQUAL,
@@ -36,7 +36,13 @@ public class PredicateGroup {
     private final int length;
     private final List<Predicate<?>> allPredicates;
     private final boolean isReflexive;
-    public final BitSet bits = new BitSet();
+    public final PredicateBitmap bits = new PredicateBitmap();
+    public final PredicateBitmap head = new PredicateBitmap();
+    public final PredicateBitmap eqFix = new PredicateBitmap();
+    public final PredicateBitmap gtFix = new PredicateBitmap();
+
+    private PredicateGroup reversed = null;
+
 
     public PredicateGroup(Type type, List<Predicate<?>> allPredicates, int offset, ColumnPair columnPair) {
         this.type = type;
@@ -60,6 +66,44 @@ public class PredicateGroup {
         this.allPredicates = allPredicates;
         this.isReflexive = columnPair.isReflexive();
         this.bits.set(offset, offset+length);
+
+        if (type.equals(Type.NUMERIC)) {
+            // OperatorGroup.LESS_THAN: ≠ < ≤
+            this.head.set(offset + 1);
+            this.head.set(offset + 3);
+            this.head.set(offset + 5);
+
+            // LESS_THAN to EQUAL: = ≠ < ≥
+            this.eqFix.set(offset);
+            this.eqFix.set(offset + 1);
+            this.eqFix.set(offset + 3);
+            this.eqFix.set(offset + 4);
+
+            // LESS_THAN to GREATER_THAN: > < ≥ ≤
+            this.gtFix.set(offset + 2);
+            this.gtFix.set(offset + 3);
+            this.gtFix.set(offset + 4);
+            this.gtFix.set(offset + 5);
+
+        } else {
+            // OperatorGroup.NOT_EQUAL
+            this.head.set(offset + 1);
+
+            this.eqFix.set(offset);
+            this.eqFix.set(offset + 1);
+        }
+
+    }
+
+    public PredicateGroup getReversed() {
+        if (this.isReflexive) {
+            return this;
+        }
+        if (this.reversed == null) {
+            this.reversed = new PredicateGroup(this.type, allPredicates, offset+length, columnPair.getReversed());
+            this.reversed.reversed = this;
+        }
+        return this.reversed;
     }
 
     public boolean isReflexive() {
@@ -74,6 +118,11 @@ public class PredicateGroup {
         }  else {
             return 0;
         }
+    }
+
+    @Override
+    public String toString() {
+        return columnPair.firstColumn() + "," + columnPair.secondColumn();
     }
 
     public static PredicateGroup findGroup(int predicate, List<PredicateGroup> predicateGroups) {
@@ -100,21 +149,13 @@ public class PredicateGroup {
     /**
      * Set the corresponding bits to head in the whole bitSet.
      * Initialize bit set with correct bits as much as possible, so avoid EQUAL case.
-     * @param bitSet Whole bitSet for whole predicate space. Will be changed in place.
+     * @param aim Whole bitSet for whole predicate space. Will be changed in place.
      */
-    public void setHead(BitSet bitSet) {
-        if (type.equals(Type.NUMERIC)) {
-            // OperatorGroup.LESS_THAN: ≠ < ≤
-            bitSet.set(offset + 1);
-            bitSet.set(offset + 3);
-            bitSet.set(offset + 5);
-        } else {
-            // OperatorGroup.NOT_EQUAL
-            bitSet.set(offset + 1);
-        }
+    public void setHead(PredicateBitmap aim) {
+        aim.or(head);
     }
 
-    public void setSymmetry(PredicateBitmap bitSet, BitSet aim) {
+    public void setSymmetry(PredicateBitmap bitSet, PredicateBitmap aim) {
         if (this.isReflexive() && this.type.equals(Type.NUMERIC)) {
             // > < ≥ ≤
             if (bitSet.get(offset)) aim.set(offset);
@@ -146,35 +187,22 @@ public class PredicateGroup {
      * @return Fix set between head and provided operatorGroup
      */
     public PredicateBitmap getFixSet(OperatorGroup operatorGroup) {
-        BitSet bitSet = new BitSet();
-
         if (this.type.equals(Type.STRING)) {
             if (operatorGroup.equals(OperatorGroup.EQUAL)) {
-                // NOT_EQUAL to EQUAL: = ≠
-                bitSet.set(offset);
-                bitSet.set(offset + 1);
+                return eqFix;
             } else {
                 System.err.println("PredicateGroup.getFixSet: unexpected operator group");
             }
         } else if (this.type.equals(Type.NUMERIC)) {
             if (operatorGroup.equals(OperatorGroup.EQUAL)) {
-                // LESS_THAN to EQUAL: = ≠ < ≥
-                bitSet.set(offset);
-                bitSet.set(offset + 1);
-                bitSet.set(offset + 3);
-                bitSet.set(offset + 4);
+                return eqFix;
             } else if (operatorGroup.equals(OperatorGroup.GREATER_THAN)) {
-                // LESS_THAN to GREATER_THAN: > < ≥ ≤
-                bitSet.set(offset + 2);
-                bitSet.set(offset + 3);
-                bitSet.set(offset + 4);
-                bitSet.set(offset + 5);
+                return gtFix;
             } else {
                 System.err.println("PredicateGroup.getFixSet: unexpected operator group");
             }
         }
-
-        return new PredicateBitmap(bitSet);
+        return null;
     }
 
     public int getAllPredicatesNum() {

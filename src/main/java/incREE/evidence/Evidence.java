@@ -30,12 +30,4 @@ public record Evidence(PredicateBitmap predicates, int multiplicity) {
         }
         return true;
     }
-
-    public static boolean satisfies(List<Predicate<?>> list, List<Evidence> er, int errorThreshold) {
-        PredicateBitmap dc = new PredicateBitmap();
-        for (Predicate<?> p : list) {
-            dc.set(p.identifier);
-        }
-        return satisfies(dc, er, errorThreshold);
-    }
 }
