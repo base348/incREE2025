@@ -1,14 +1,14 @@
 package incREE.dataset;
 
+import incREE.FileManager;
 import incREE.evidence.Predicate;
 import incREE.evidence.PredicateBitmap;
+import incREE.evidence.DataPredicateGroup;
 import incREE.evidence.PredicateGroup;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import java.util.function.Consumer;
-import java.util.stream.Collectors;
 
 public class Relation {
     private static final double MINIMUM_SHARED_VALUE = 0.3d;
@@ -19,7 +19,7 @@ public class Relation {
     public List<Column<?>> attributes;
     int attributeCount;
     public final List<Predicate<?>> predicateSpace = new ArrayList<>();
-    public final List<PredicateGroup> predicateGroups = new ArrayList<>();
+    public final List<DataPredicateGroup> predicateGroups = new ArrayList<>();
 
     public Relation(String name, List<Column<?>> attributes, int currentSize, int totalSize) {
         this.name = name;
@@ -30,6 +30,8 @@ public class Relation {
         for (Column<?> attribute : attributes) {
             attributeNames.add(attribute.name);
         }
+
+        loadPredicateSpace();
     }
 
     public void buildPredicateSpace() {
@@ -38,15 +40,18 @@ public class Relation {
     }
 
     public void buildPredicateSpace(List<ColumnPair> columnPairs) {
+        if (!predicateSpace.isEmpty()) {
+            return;
+        }
         int length = 0;
         for (ColumnPair columnPair : columnPairs) {
-            PredicateGroup newGroup;
+            DataPredicateGroup newGroup;
             int newLength = 0;
             if (columnPair.firstColumn().type == RawColumn.Type.STRING) {
-                newGroup = new PredicateGroup(PredicateGroup.Type.STRING, predicateSpace, length, columnPair);
+                newGroup = new DataPredicateGroup(PredicateGroup.Type.STRING, predicateSpace, length, columnPair);
                 newLength = 2;
             } else {
-                newGroup = new PredicateGroup(PredicateGroup.Type.NUMERIC, predicateSpace, length, columnPair);
+                newGroup = new DataPredicateGroup(PredicateGroup.Type.NUMERIC, predicateSpace, length, columnPair);
                 newLength = 6;
             }
             predicateGroups.add(newGroup);
@@ -59,8 +64,27 @@ public class Relation {
         }
     }
 
-    public List<PredicateGroup> loadPredicateSpace() {
+    public Column<?> getAttribute(String attributeName) throws Exception {
+        for (Column<?> attribute : attributes) {
+            if (attribute.name.equals(attributeName)) {
+                return attribute;
+            }
+        }
+        throw new Exception("No such attribute: " + attributeName);
+    }
 
+    public void loadPredicateSpace() {
+        if (!predicateSpace.isEmpty()) {
+            return;
+        }
+        List<ColumnPair> columnPairs;
+        try {
+            columnPairs = FileManager.loadColumnPairs(this);
+        } catch (Exception e) {
+            System.err.println("Error reading ColumnGroups from file.");
+            columnPairs = getColumnPairs(attributes);
+        }
+        buildPredicateSpace(columnPairs);
     }
 
     private List<ColumnPair> getColumnPairs(List<Column<?>> attributes) {

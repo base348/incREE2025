@@ -8,7 +8,7 @@ import java.util.List;
 
 public class DCRanker {
 
-    private static record Score(int score, int index) {
+    private record Score(int score, int index) {
     }
 
     private final List<List<Predicate<?>>> dc;

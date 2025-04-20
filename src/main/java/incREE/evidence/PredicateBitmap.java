@@ -4,11 +4,9 @@ import ch.javasoft.bitset.BitSetFactory;
 import ch.javasoft.bitset.IBitSet;
 import ch.javasoft.bitset.LongBitSet.LongBitSetFactory;
 
-import java.util.BitSet;
-
 public class PredicateBitmap {
 
-    private static BitSetFactory bf = new LongBitSetFactory();
+    public static BitSetFactory bf = new LongBitSetFactory();
     protected IBitSet bitset;
 
     public PredicateBitmap(IBitSet bitset) {
@@ -51,8 +49,7 @@ public class PredicateBitmap {
 
     @Override
     public String toString() {
-        String bitsetString = bitset.toString();
-        return bitsetString.substring(1, bitsetString.length() - 1);
+        return bitset.toString();
     }
 
     public boolean disjoint(PredicateBitmap other) {
@@ -87,6 +84,10 @@ public class PredicateBitmap {
 
     public void andNot(PredicateBitmap other) {
         bitset.andNot(other.bitset);
+    }
+
+    public void and(PredicateBitmap other) {
+        bitset.and(other.bitset);
     }
 
     public void or(PredicateBitmap other) {

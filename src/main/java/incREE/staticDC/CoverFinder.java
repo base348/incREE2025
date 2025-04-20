@@ -1,8 +1,6 @@
 package incREE.staticDC;
 
-import incREE.evidence.Evidence;
-import incREE.evidence.PredicateBitmap;
-import incREE.evidence.PredicateGroup;
+import incREE.evidence.*;
 
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
@@ -16,19 +14,19 @@ public class CoverFinder {
 
     private final double errorThreshold;
     private final List<Evidence> er;
-    private final List<PredicateGroup> predicateGroups;
+    private final List<AbstractPredicateGroup> predicateGroups;
     private final int predicateNum;
 
-    public CoverFinder(double errorRateThreshold, int totalTuplePairsNum, List<Evidence> er, List<PredicateGroup> predicateGroups) {
+    public CoverFinder(double errorRateThreshold, int totalTuplePairsNum, List<Evidence> er, List<AbstractPredicateGroup> predicateGroups) {
         this.errorThreshold = errorRateThreshold * totalTuplePairsNum;
         this.er = er;
         this.predicateGroups = predicateGroups;
         this.predicateNum = predicateGroups.get(0).getAllPredicatesNum();
     }
 
-    public CoverFinder(double errorRateThreshold, int totalTuplePairsNum, Map<PredicateBitmap, Integer> evidenceMap, List<PredicateGroup> predicateGroups) {
+    public CoverFinder(double errorRateThreshold, int totalTuplePairsNum, Map<PredicateBitmap, Integer> evidenceMap, List<AbstractPredicateGroup> predicateGroups) {
         this.errorThreshold = errorRateThreshold * totalTuplePairsNum;
-        this.er = toList(evidenceMap);
+        this.er = Evidence.fromMap(evidenceMap);
         this.predicateGroups = predicateGroups;
         this.predicateNum = predicateGroups.get(0).getAllPredicatesNum();
     }
@@ -38,12 +36,6 @@ public class CoverFinder {
         public int compareTo(IntegerPair other) {
             return Integer.compare(left, other.left);
         }
-    }
-
-    private static List<Evidence> toList(Map<PredicateBitmap, Integer> evidenceMap) {
-        List<Evidence> evidenceList = new ArrayList<>();
-        evidenceMap.forEach((k, v) -> evidenceList.add(new Evidence(k, v)));
-        return evidenceList;
     }
 
     private boolean isImplied(PredicateBitmap q, List<PredicateBitmap> cover) {
@@ -103,7 +95,7 @@ public class CoverFinder {
                 PredicateBitmap pForwardNew = pForward.copy();
 
                 // remove all predicate from the same group
-                PredicateGroup group = PredicateGroup.findGroup(p.right, predicateGroups);
+                AbstractPredicateGroup group = AbstractPredicateGroup.findGroup(p.right, predicateGroups);
                 pForwardNew.andNot(group.bits);
 
                 pForward.getBitSet().set(p.right, false);

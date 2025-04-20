@@ -1,7 +1,5 @@
 package incREE.dataset;
 
-import incREE.evidence.PredicateGroup;
-
 public record ColumnPair(Column<?> firstColumn, Column<?> secondColumn) implements Comparable<ColumnPair> {
     public boolean isReflexive() {
         return firstColumn == secondColumn;

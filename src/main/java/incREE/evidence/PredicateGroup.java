@@ -1,18 +1,19 @@
 package incREE.evidence;
 
-import incREE.dataset.ColumnPair;
+import ch.javasoft.bitset.IBitSet;
+import incREE.dataset.Column;
 
-import java.util.ArrayList;
-import java.util.BitSet;
 import java.util.List;
 
-// Records a part of whole predicate space
-// Not include data tuple information
-public class PredicateGroup {
-
+public abstract class PredicateGroup {
     public enum Type {
-        NUMERIC,
-        STRING,
+        NUMERIC("NUMERIC"),
+        STRING("STRING");
+
+        public final String name;
+        Type(String name) {
+            this.name = name;
+        }
     }
 
     /**
@@ -30,50 +31,45 @@ public class PredicateGroup {
         LESS_THAN,
     }
 
+    private static final IBitSet eq = PredicateBitmap.bf.create();
+    private static final IBitSet gt = PredicateBitmap.bf.create();
+    private static final IBitSet lt = PredicateBitmap.bf.create();
+
+    static {
+        eq.set(0);
+        eq.set(4);
+        eq.set(5);
+
+        gt.set(1);
+        gt.set(2);
+        gt.set(4);
+
+        lt.set(1);
+        lt.set(3);
+        lt.set(5);
+    }
+
     Type type;
-    public final ColumnPair columnPair;
-    private final int offset;
-    private final int length;
-    private final List<Predicate<?>> allPredicates;
-    private final boolean isReflexive;
+    int offset;
+    int length;
+
+    boolean isReflexive;
+    boolean isMajor = true;
     public final PredicateBitmap bits = new PredicateBitmap();
     public final PredicateBitmap head = new PredicateBitmap();
     public final PredicateBitmap eqFix = new PredicateBitmap();
     public final PredicateBitmap gtFix = new PredicateBitmap();
 
-    private PredicateGroup reversed = null;
-
-
-    public PredicateGroup(Type type, List<Predicate<?>> allPredicates, int offset, ColumnPair columnPair) {
-        this.type = type;
-        this.columnPair = columnPair;
-        this.offset = offset;
+    void init() {
+        this.bits.set(offset, offset +length);
 
         if (type.equals(Type.NUMERIC)) {
-            this.length = 6;
-            allPredicates.add(Predicate.build(columnPair.firstColumn(), Operator.EQUAL, columnPair.secondColumn()));
-            allPredicates.add(Predicate.build(columnPair.firstColumn(), Operator.NOT_EQUAL, columnPair.secondColumn()));
-            allPredicates.add(Predicate.build(columnPair.firstColumn(), Operator.GREATER_THAN, columnPair.secondColumn()));
-            allPredicates.add(Predicate.build(columnPair.firstColumn(), Operator.LESS_THAN, columnPair.secondColumn()));
-            allPredicates.add(Predicate.build(columnPair.firstColumn(), Operator.GREATER_THAN_OR_EQUAL, columnPair.secondColumn()));
-            allPredicates.add(Predicate.build(columnPair.firstColumn(), Operator.LESS_THAN_OR_EQUAL, columnPair.secondColumn()));
-        } else {
-            this.length = 2;
-            allPredicates.add(Predicate.build(columnPair.firstColumn(), Operator.EQUAL, columnPair.secondColumn()));
-            allPredicates.add(Predicate.build(columnPair.firstColumn(), Operator.NOT_EQUAL, columnPair.secondColumn()));
-        }
-
-        this.allPredicates = allPredicates;
-        this.isReflexive = columnPair.isReflexive();
-        this.bits.set(offset, offset+length);
-
-        if (type.equals(Type.NUMERIC)) {
-            // OperatorGroup.LESS_THAN: ≠ < ≤
+            // OperatorGroup.LESS_THAN: != < ≤
             this.head.set(offset + 1);
             this.head.set(offset + 3);
             this.head.set(offset + 5);
 
-            // LESS_THAN to EQUAL: = ≠ < ≥
+            // LESS_THAN to EQUAL: = != < ≥
             this.eqFix.set(offset);
             this.eqFix.set(offset + 1);
             this.eqFix.set(offset + 3);
@@ -92,18 +88,10 @@ public class PredicateGroup {
             this.eqFix.set(offset);
             this.eqFix.set(offset + 1);
         }
-
     }
 
-    public PredicateGroup getReversed() {
-        if (this.isReflexive) {
-            return this;
-        }
-        if (this.reversed == null) {
-            this.reversed = new PredicateGroup(this.type, allPredicates, offset+length, columnPair.getReversed());
-            this.reversed.reversed = this;
-        }
-        return this.reversed;
+    public boolean isMajor() {
+        return this.isMajor;
     }
 
     public boolean isReflexive() {
@@ -120,32 +108,6 @@ public class PredicateGroup {
         }
     }
 
-    @Override
-    public String toString() {
-        return columnPair.firstColumn() + "," + columnPair.secondColumn();
-    }
-
-    public static PredicateGroup findGroup(int predicate, List<PredicateGroup> predicateGroups) {
-        //  TODO: use binary search
-//        int left = 0;
-//        int right = predicateGroups.size();
-//        while (left < right) {
-//            int mid = left + (right - left) / 2;
-//            int contain = predicateGroups.get(mid).contains(predicate);
-//            if (contain == -1) {
-//                 = mid;
-//            } else if (contain == 1) {
-//                left = mid + 1;
-//            }
-//        }
-        for (PredicateGroup predicateGroup : predicateGroups) {
-            if (predicateGroup.contains(predicate) == 0) {
-                return predicateGroup;
-            }
-        }
-        throw new IllegalArgumentException("No predicate group found");
-    }
-
     /**
      * Set the corresponding bits to head in the whole bitSet.
      * Initialize bit set with correct bits as much as possible, so avoid EQUAL case.
@@ -155,27 +117,55 @@ public class PredicateGroup {
         aim.or(head);
     }
 
-    public void setSymmetry(PredicateBitmap bitSet, PredicateBitmap aim) {
-        if (this.isReflexive() && this.type.equals(Type.NUMERIC)) {
-            // > < ≥ ≤
-            if (bitSet.get(offset)) aim.set(offset);
-            if (bitSet.get(offset + 1)) aim.set(offset + 1);
-            if (bitSet.get(offset + 2)) aim.set(offset + 3);
-            if (bitSet.get(offset + 3)) aim.set(offset + 2);
-            if (bitSet.get(offset + 4)) aim.set(offset + 5);
-            if (bitSet.get(offset + 5)) aim.set(offset + 4);
-        } else {
-            for (int i = 0; i < this.length; i++) {
-                if (bitSet.get(offset + i)) aim.set(offset + i);
-            }
+    private boolean groupGet(PredicateBitmap bitSet, int pos) {
+        if (pos < this.length) {
+            return bitSet.get(this.offset+pos);
         }
+        return false;
+    }
+
+    private IBitSet groupGet(PredicateBitmap bitSet) {
+        IBitSet bs = PredicateBitmap.bf.create();
+        for (int i = 0; i < this.length; i++) {
+            if (bitSet.get(this.offset + i)) bs.set(i);
+        }
+        return bs;
+    }
+
+    private void groupSet(PredicateBitmap bitSet, int pos) {
+        if (pos < this.length) {
+            bitSet.set(this.offset+pos);
+        }
+    }
+
+    private void groupSet(PredicateBitmap bitSet, IBitSet groupSet) {
+        for (int i = 0; i < this.length; i++) {
+            if (groupSet.get(i)) groupSet(bitSet,i);
+        }
+    }
+
+    public void setImage(PredicateBitmap bitSet, PredicateBitmap aim) {
+        IBitSet bs;
+        if (this.type.equals(PredicateGroup.Type.NUMERIC)) {
+            bs = PredicateBitmap.bf.create();
+            // > < ≥ ≤
+            if (groupGet(bitSet, 0)) bs.set(0);
+            if (groupGet(bitSet, 1)) bs.set(1);
+            if (groupGet(bitSet, 2)) bs.set(3);
+            if (groupGet(bitSet, 3)) bs.set(2);
+            if (groupGet(bitSet, 4)) bs.set(5);
+            if (groupGet(bitSet, 5)) bs.set(4);
+        } else {
+            bs = groupGet(bitSet);
+        }
+        this.getReversed().groupSet(aim, bs);
     }
 
     /**
      * @return Cases used for evidence reconcile. Not include cases which is used as head.
      */
     public OperatorGroup[] getReconcileOperatorGroup() {
-        if (type.equals(Type.STRING)) {
+        if (type.equals(PredicateGroup.Type.STRING)) {
             return new OperatorGroup[]{OperatorGroup.EQUAL};
         } else {
             return new OperatorGroup[]{OperatorGroup.EQUAL, OperatorGroup.GREATER_THAN};
@@ -187,13 +177,13 @@ public class PredicateGroup {
      * @return Fix set between head and provided operatorGroup
      */
     public PredicateBitmap getFixSet(OperatorGroup operatorGroup) {
-        if (this.type.equals(Type.STRING)) {
+        if (this.type.equals(PredicateGroup.Type.STRING)) {
             if (operatorGroup.equals(OperatorGroup.EQUAL)) {
                 return eqFix;
             } else {
                 System.err.println("PredicateGroup.getFixSet: unexpected operator group");
             }
-        } else if (this.type.equals(Type.NUMERIC)) {
+        } else if (this.type.equals(PredicateGroup.Type.NUMERIC)) {
             if (operatorGroup.equals(OperatorGroup.EQUAL)) {
                 return eqFix;
             } else if (operatorGroup.equals(OperatorGroup.GREATER_THAN)) {
@@ -205,7 +195,47 @@ public class PredicateGroup {
         return null;
     }
 
-    public int getAllPredicatesNum() {
-        return allPredicates.size();
+    public boolean isLegal(PredicateBitmap predicateBitmap) {
+        IBitSet bs = this.groupGet(predicateBitmap);
+        if (this.type.equals(PredicateGroup.Type.STRING)) {
+            return bs.get(0) ^ bs.get(1);
+        } else return bs.equals(eq) || bs.equals(gt) || bs.equals(lt);
     }
+
+    public abstract int getAllPredicatesNum();
+
+    public abstract PredicateGroup getReversed();
+
+    public static class JsonDTO {
+        public String firstColumn;
+        public String secondColumn;
+        public PredicateGroup.Type type;
+
+        public JsonDTO(String firstColumn, String secondColumn, PredicateGroup.Type type) {
+            this.firstColumn = firstColumn;
+            this.secondColumn = secondColumn;
+            this.type = type;
+        }
+
+        public void setFirstColumn(String firstColumn) {
+            this.firstColumn = firstColumn;
+        }
+        public void setSecondColumn(String secondColumn) {
+            this.secondColumn = secondColumn;
+        }
+        public void setType(PredicateGroup.Type type) {
+            this.type = type;
+        }
+        public String getFirstColumn() {
+            return firstColumn;
+        }
+        public String getSecondColumn() {
+            return secondColumn;
+        }
+        public PredicateGroup.Type getType() {
+            return type;
+        }
+    }
+
+    public abstract JsonDTO toJsonDTO();
 }

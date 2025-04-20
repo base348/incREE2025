@@ -46,7 +46,7 @@ public class EvidenceSetBuilder {
      * @param operatorGroup EQUAL or GREATER_THAN
      * @return List of TuplePair ID that inconsistent with given predicate
      */
-    private <T extends Comparable<T>> List<Integer> getInconsistentTuplePairs(PredicateGroup predicateGroup, PredicateGroup.OperatorGroup operatorGroup) {
+    private <T extends Comparable<T>> List<Integer> getInconsistentTuplePairs(DataPredicateGroup predicateGroup, DataPredicateGroup.OperatorGroup operatorGroup) {
         // TODO: optimize this algorithm by decreasing compare operations
         @SuppressWarnings("unchecked")
         Map<T, TreeSet<Integer>> PLILeft = (Map<T, TreeSet<Integer>>) predicateGroup.columnPair.firstColumn().getPLI(relation.currentSize);
@@ -87,13 +87,14 @@ public class EvidenceSetBuilder {
                     }
                     i = i + 1;
                 }
+                break;
         }
         return inconsistentTuplePairs;
     }
 
     private PredicateBitmap getEvidenceHead() {
         PredicateBitmap head = new PredicateBitmap();
-        for (PredicateGroup predicateGroup : relation.predicateGroups) {
+        for (DataPredicateGroup predicateGroup : relation.predicateGroups) {
             head.or(predicateGroup.head);
         }
         return head;
@@ -106,8 +107,8 @@ public class EvidenceSetBuilder {
             evidenceSet.add(evidenceHead.copy());
         }
         // Reconcile
-        for (PredicateGroup predicateGroup : relation.predicateGroups) {
-            for (PredicateGroup.OperatorGroup og : predicateGroup.getReconcileOperatorGroup()) {
+        for (DataPredicateGroup predicateGroup : relation.predicateGroups) {
+            for (DataPredicateGroup.OperatorGroup og : predicateGroup.getReconcileOperatorGroup()) {
                 PredicateBitmap fix = predicateGroup.getFixSet(og);
                 List<Integer> tps = getInconsistentTuplePairs(predicateGroup, og);
                 for (Integer tpId : tps) {

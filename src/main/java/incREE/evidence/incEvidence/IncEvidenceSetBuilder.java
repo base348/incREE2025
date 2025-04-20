@@ -2,32 +2,34 @@ package incREE.evidence.incEvidence;
 
 import incREE.dataset.Column;
 import incREE.dataset.Relation;
-import incREE.evidence.EvidenceSetBuilder;
-import incREE.evidence.Predicate;
 import incREE.evidence.PredicateBitmap;
-import incREE.evidence.PredicateGroup;
+import incREE.evidence.DataPredicateGroup;
 
 import java.util.*;
-import java.util.stream.Collectors;
-import java.util.stream.IntStream;
 
 public class IncEvidenceSetBuilder {
     private final Relation relation;
-    private final List<PredicateGroup> predicateGroups;
-//    private final int totalTupleSize;
+    private final List<DataPredicateGroup> predicateGroups;
     private final int currentTupleSize;
     private final int incTupleSize;
-//    private final List<List<EvidenceContext>> contexts = new ArrayList<>();
     private final Map<PredicateBitmap, Integer> evidenceMap;
 
     private static final TreeSet<Integer> EMPTY_SET = new TreeSet<>();
 
     private PredicateBitmap getEvidenceHead() {
         PredicateBitmap head = new PredicateBitmap();
-        for (PredicateGroup predicateGroup : relation.predicateGroups) {
+        for (DataPredicateGroup predicateGroup : relation.predicateGroups) {
             head.or(predicateGroup.head);
         }
         return head;
+    }
+
+    private static int getSize(Map<PredicateBitmap, Integer> evidenceMap) {
+        int size = 0;
+        for (PredicateBitmap predicateBitmap : evidenceMap.keySet()) {
+            size += evidenceMap.get(predicateBitmap);
+        }
+        return size;
     }
 
     public IncEvidenceSetBuilder(Relation relation, int incTupleSize) {
@@ -43,29 +45,55 @@ public class IncEvidenceSetBuilder {
         BitSet previous = new BitSet(currentTupleSize);
         previous.set(0, currentTupleSize);
 
+        // init with != < ≤
         PredicateBitmap head = getEvidenceHead();
         for (int i = currentTupleSize; i < currentTupleSize + incTupleSize; i++) {
             reconcileContexts(new EvidenceContext(i, (BitSet) previous.clone(), head.copy()));
             previous.set(i);
         }
 
-//        List<Evidence> degenerateEvidenceSet = new ArrayList<>();
-//        evidenceMap.forEach((k, v) -> degenerateEvidenceSet.add(new Evidence(k, v)));
+        System.out.println("evidenceMap with size " + getSize(evidenceMap));
+
+        //cal image here
+        getImage(evidenceMap).forEach((key, value) -> {
+            evidenceMap.merge(key, value, Integer::sum);
+        });
+
+        System.out.println("evidenceMap with size " + getSize(evidenceMap));
+
         return evidenceMap;
     }
 
-    private EvidenceContext symmetryCopy(EvidenceContext context) {
-        PredicateBitmap copy = new PredicateBitmap();
-        for (PredicateGroup predicateGroup : relation.predicateGroups) {
-            predicateGroup.setSymmetry(context.evidence(), copy);
+    private boolean notLegal(PredicateBitmap predicateBitmap) {
+        for (DataPredicateGroup predicateGroup : predicateGroups) {
+            if (!predicateGroup.isLegal(predicateBitmap))
+                return true;
         }
-        return new EvidenceContext(context.tidLeft(), (BitSet) context.tidRight().clone(), copy);
+        return false;
     }
 
-    private List<EvidenceContext> symmetryDeepCopyContexts(List<EvidenceContext> contexts) {
-        List<EvidenceContext> copy = new ArrayList<>(contexts.size());
-        for (EvidenceContext context : contexts) {
-            copy.add(symmetryCopy(context));
+    private PredicateBitmap getImage(PredicateBitmap bitmap) {
+
+        if (notLegal(bitmap)) {
+            System.err.println(bitmap+" bitmap is not legal");
+        }
+
+        PredicateBitmap copy = new PredicateBitmap();
+        for (DataPredicateGroup predicateGroup : relation.predicateGroups) {
+            predicateGroup.setImage(bitmap, copy);
+        }
+
+        // check if copy is legal
+        if (notLegal(copy)) {
+            System.err.println(copy+" copied is not legal");
+        }
+        return copy;
+    }
+
+    private Map<PredicateBitmap, Integer> getImage(Map<PredicateBitmap, Integer> evidenceMap) {
+        Map<PredicateBitmap, Integer> copy = new HashMap<>();
+        for (PredicateBitmap predicateBitmap : evidenceMap.keySet()) {
+            copy.put(getImage(predicateBitmap), evidenceMap.get(predicateBitmap));
         }
         return copy;
     }
@@ -78,139 +106,61 @@ public class IncEvidenceSetBuilder {
         return size;
     }
 
-//    public void checkEvidence(List<EvidenceContext> contexts, boolean symmetry) {
-//        for (EvidenceContext context : contexts) {
-//            for (Integer tid : context.tidRight() ) {
-//                if (!symmetry) {
-//                    if (!relation.satisfies(context.tidLeft(), tid, context.evidence())) {
-//                        // build correct evidence by naive method
-//                        PredicateBitmap evidence = new PredicateBitmap();
-//                        for (Predicate<?> predicate : relation.predicateSpace) {
-//                            if (relation.satisfies(context.tidLeft(), tid, predicate)) {
-//                                evidence.set(predicate.identifier);
-//                            }
-//                        }
-//                        throw new RuntimeException("Evidence context is not correct.");
-//                    }
-//                } else {
-//                    if (!relation.satisfies(tid, context.tidLeft(), context.evidence())) {
-//                        PredicateBitmap evidence = new PredicateBitmap();
-//                        for (Predicate<?> predicate : relation.predicateSpace) {
-//                            if (relation.satisfies(tid, context.tidLeft(), predicate)) {
-//                                evidence.set(predicate.identifier);
-//                            }
-//                        }
-//                        throw new RuntimeException("Evidence context is not correct.");
-//                    }
-//                }
-//            }
-//        }
-//    }
-
     private void collect(List<EvidenceContext> contexts) {
-//        int mergeSize = 0;
-//        for (EvidenceContext context : contexts) {
-//            mergeSize += context.tidRight().size();
-//        }
-//        int evidenceSize = evidenceMapSize();
         for (EvidenceContext context : contexts) {
             evidenceMap.merge(context.evidence(), context.tidRight().cardinality(), Integer::sum);
         }
-//        int evidenceSize2 = evidenceMapSize();
-//        System.out.println("IncEvidenceSetBuilder.collect: " + mergeSize + "new evidence got, evidenceMap expanded from " + evidenceSize + " to " + evidenceSize2);
     }
 
-    private static void setBitSet(BitSet aim, Set<Integer> set) {
+    private static void toBitSet(Set<Integer> set, BitSet aim) {
         set.forEach(aim::set);
     }
 
     /**
      * Use PLI to find inconsistent TuplePairs
+     *
      * @param operatorGroup EQUAL or GREATER_THAN
      * @return Set of TuplePair ID that inconsistent with given predicate
      */
-    private <T extends Comparable<T>> BitSet getInconsistentTuplePairs(PredicateGroup predicateGroup, PredicateGroup.OperatorGroup operatorGroup, int tidLeft, boolean isSymmetry) {
+    private <T extends Comparable<T>> BitSet getInconsistentTuplePairs(DataPredicateGroup predicateGroup, DataPredicateGroup.OperatorGroup operatorGroup, int tidLeft) {
         // TODO: optimize this algorithm by decreasing compare operations
         @SuppressWarnings("unchecked")
         Column<T> columnLeft = (Column<T>) predicateGroup.columnPair.firstColumn();
         @SuppressWarnings("unchecked")
         Column<T> columnRight = (Column<T>) predicateGroup.columnPair.secondColumn();
-        T val;
-        TreeMap<T, TreeSet<Integer>> treeMap;
+        T val = columnLeft.get(tidLeft);
+        TreeMap<T, TreeSet<Integer>> treeMap = columnRight.getPLI(tidLeft);
         BitSet ans = new BitSet();
-
-        if (isSymmetry) {
-            val = columnRight.get(tidLeft);
-            treeMap = columnLeft.getPLI(tidLeft);
-        } else {
-            val = columnLeft.get(tidLeft);
-            treeMap = columnRight.getPLI(tidLeft);
-        }
 
         switch (operatorGroup) {
             case EQUAL:
-                setBitSet(ans, treeMap.getOrDefault(val, EMPTY_SET));
+                toBitSet(treeMap.getOrDefault(val, EMPTY_SET), ans);
+                break;
             case GREATER_THAN:
-                if (isSymmetry) {
-                    for (TreeSet<Integer> valueSet : treeMap.tailMap(val, false).values()) {
-                        setBitSet(ans, valueSet);
-                    }
-                } else {
-                    for (TreeSet<Integer> valueSet : treeMap.headMap(val, false).values()) {
-                        setBitSet(ans, valueSet);
-                    }
+                for (TreeSet<Integer> valueSet : treeMap.headMap(val, false).values()) {
+                    toBitSet(valueSet, ans);
                 }
+                break;
         }
         return ans;
     }
 
-    private <T extends Comparable<T>> void reconcileContexts(EvidenceContext context) {
-        // TODO: Use PLI of inc part to avoid repeat calculation?
+    private void reconcileContexts(EvidenceContext context) {
         int leftId = context.tidLeft();
         List<EvidenceContext> reconciled = new ArrayList<>();
-        List<EvidenceContext> reconciledCopy;
         reconciled.add(context);
-        predicateGroups.stream().filter(PredicateGroup::isReflexive).forEach(predicateGroup -> {
-            for (PredicateGroup.OperatorGroup og : predicateGroup.getReconcileOperatorGroup()) {
+
+        // all groups
+        for (DataPredicateGroup predicateGroup : predicateGroups) {
+            for (DataPredicateGroup.OperatorGroup og : predicateGroup.getReconcileOperatorGroup()) {
                 PredicateBitmap fix = predicateGroup.getFixSet(og);
-                BitSet inconsistent = getInconsistentTuplePairs(predicateGroup, og, leftId, false);
+                BitSet inconsistent = getInconsistentTuplePairs(predicateGroup, og, leftId);
 
                 reconcilePredicateGroup(reconciled, fix, inconsistent);
             }
-        });
-
-        // copy the reconciled list
-        reconciledCopy = symmetryDeepCopyContexts(reconciled);
-
-        if (predicateGroups.stream().filter(predicateGroup -> !predicateGroup.isReflexive()).findAny().isEmpty()) {
-//            checkEvidence(reconciled, false);
-            collect(reconciled);
-//            checkEvidence(reconciledCopy, true);
-            collect(reconciledCopy);
-            return;
         }
 
-        predicateGroups.stream().filter(predicateGroup -> !predicateGroup.isReflexive()).forEach(predicateGroup -> {
-            for (PredicateGroup.OperatorGroup og : predicateGroup.getReconcileOperatorGroup()) {
-                PredicateBitmap fix = predicateGroup.getFixSet(og);
-                BitSet inconsistent = getInconsistentTuplePairs(predicateGroup, og, leftId, false);
-
-                reconcilePredicateGroup(reconciled, fix, inconsistent);
-            }
-        });
-//        checkEvidence(reconciled, false);
         collect(reconciled);
-
-        predicateGroups.stream().filter(predicateGroup -> !predicateGroup.isReflexive()).forEach(predicateGroup -> {
-            for (PredicateGroup.OperatorGroup og : predicateGroup.getReconcileOperatorGroup()) {
-                PredicateBitmap fix = predicateGroup.getFixSet(og);
-                BitSet inconsistent = getInconsistentTuplePairs(predicateGroup, og, leftId, true);
-
-                reconcilePredicateGroup(reconciledCopy, fix, inconsistent);
-            }
-        });
-//        checkEvidence(reconciledCopy, true);
-        collect(reconciledCopy);
     }
 
     private void reconcilePredicateGroup(List<EvidenceContext> reconciled, PredicateBitmap fix, BitSet inconsistent) {
