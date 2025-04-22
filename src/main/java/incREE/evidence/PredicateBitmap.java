@@ -52,6 +52,22 @@ public class PredicateBitmap {
         return bitset.toString();
     }
 
+    public String toSetString() {
+        if (bitset.isEmpty()) {
+            return "{}";
+        }
+
+        StringBuilder builder = new StringBuilder();
+        builder.append("{");
+
+        for (int i = this.nextSetBit(0); i >= 0; i = this.nextSetBit(i + 1)) {
+            builder.append(i).append(", ");
+        }
+        // delete the last comma
+        builder.delete(builder.length() - 2, builder.length()).append("}");
+        return builder.toString();
+    }
+
     public boolean disjoint(PredicateBitmap other) {
         return bitset.getAndCardinality(other.bitset) > 0;
     }

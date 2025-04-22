@@ -1,5 +1,6 @@
 package incREE;
 
+import com.google.gson.stream.JsonWriter;
 import incREE.dataset.Input;
 import incREE.dataset.Relation;
 import incREE.evidence.*;
@@ -7,12 +8,13 @@ import incREE.evidence.incEvidence.IncEvidenceSetBuilder;
 import incREE.staticDC.CoverFinder;
 
 import java.io.IOException;
+import java.io.Writer;
 import java.util.*;
 
 public class Main {
 
-    private static final int CURRENT_LINES = 30;
-    private static final int INC_LINES = 170;
+    private static final int CURRENT_LINES = 10000;
+    private static final int INC_LINES = 9800;
 
     private static void merge(Map<PredicateBitmap, Integer> map1, Map<PredicateBitmap, Integer> map2) {
         map2.forEach((key, value) -> map1.merge(key, value, Integer::sum));
@@ -87,24 +89,26 @@ public class Main {
         FileManager.saveColumnPairs(predicateGroups);
     }
 
-//    private static void findCover() throws IOException {
-//        Map<PredicateBitmap, Integer> evidence = FileManager.loadEvidence(CURRENT_LINES);
-//        Input input = new Input(FileManager.relationFileName());
-//        Relation r = input.getRelation(1, 0);
-//        CoverFinder coverFinder = new CoverFinder(0, r.getTotalTuplePairs(), evidence, r.predicateGroups);
-//        List<PredicateBitmap> cover = coverFinder.findCover();
-//        System.out.println("Cover find complete.");
-//        FileManager.saveCover(CURRENT_LINES, cover);
-//    }
+    private static void findCover() throws IOException {
+        List<Evidence> evidence = FileManager.loadEvidence(CURRENT_LINES);
+        List<AbstractPredicateGroup> predicateGroups = FileManager.loadAbstractPredicateGroups();
+        CoverFinder coverFinder = new CoverFinder(0, Evidence.size(evidence), evidence, predicateGroups);
+        CoverFinder.Result r = coverFinder.findCover();
+        System.out.println("Cover find complete.");
+//        FileManager.saveCover(CURRENT_LINES, r);
+//        FileManager.saveTerminal(CURRENT_LINES, r);
+//        FileManager.writeExpression(CURRENT_LINES, r);
+        FileManager.trailSave(CURRENT_LINES, r);
+    }
 
     public static void main(String[] args) throws Exception {
         long startTime = System.currentTimeMillis();
 
 //        saveColumnPairs();
 //        buildEvidenceSetAndSave();
-        mergeAndSave();
-//        findCover();
-//        writeExpression();
+//        mergeAndSave();
+        findCover();
+//        FileManager.trailLoad(CURRENT_LINES);
 
         long endTime = System.currentTimeMillis();
         long elapsedTime = endTime - startTime;

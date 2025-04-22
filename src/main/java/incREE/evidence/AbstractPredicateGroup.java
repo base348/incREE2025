@@ -6,9 +6,11 @@ import java.util.List;
 public class AbstractPredicateGroup extends PredicateGroup  {
     public final String attribute1;
     public final String attribute2;
-    private final List<AbstractPredicate> allPredicates;
+    public final List<AbstractPredicate> allPredicates;
 
     AbstractPredicateGroup reversed = null;
+    public final PredicateBitmap coverCandidates = new PredicateBitmap();
+
     public AbstractPredicateGroup(PredicateGroup.Type type, List<AbstractPredicate> allPredicates, int offset, String attribute1, String attribute2) {
         this.type = type;
         this.attribute1 = attribute1;
@@ -32,6 +34,15 @@ public class AbstractPredicateGroup extends PredicateGroup  {
         }
         
         init();
+    }
+
+    @Override
+    void init() {
+        super.init();
+        this.coverCandidates.set(offset);
+        this.coverCandidates.set(offset + 1);
+        this.coverCandidates.set(offset + 3);
+        this.coverCandidates.set(offset + 5);
     }
 
     public static AbstractPredicateGroup findGroup(int predicate, List<AbstractPredicateGroup> predicateGroups) {
@@ -88,7 +99,7 @@ public class AbstractPredicateGroup extends PredicateGroup  {
             int newLength = jsonDTO.type.equals(PredicateGroup.Type.NUMERIC) ? 6 : 2;
             offset += newLength;
 
-            if (newGroup.isReflexive()) {
+            if (!newGroup.isReflexive()) {
                 predicateGroups.add(newGroup.getReversed());
                 offset += newLength;
             }

@@ -20,4 +20,9 @@ public class AbstractPredicate {
     public static AbstractPredicate build(String attribute1, Operator operator, String attribute2) {
         return new AbstractPredicate(attribute1, operator, attribute2, counter++);
     }
+
+    public String getNegativeExpression() {
+        return String.format("tx.%s %s ty.%s", attribute1,
+                operator.negation(), attribute2);
+    }
 }

@@ -1,13 +1,9 @@
 package incREE.dataset;
 
-import incREE.evidence.PredicateBitmap;
-
 import java.io.BufferedReader;
 import java.io.FileReader;
 import java.io.IOException;
-import java.io.InputStream;
 import java.util.ArrayList;
-import java.util.BitSet;
 import java.util.List;
 import java.util.Scanner;
 

@@ -2,9 +2,6 @@ package incREE.staticDC;
 
 import incREE.evidence.*;
 
-import java.io.FileNotFoundException;
-import java.io.FileOutputStream;
-import java.io.PrintStream;
 import java.util.*;
 
 public class CoverFinder {
@@ -16,6 +13,28 @@ public class CoverFinder {
     private final List<Evidence> er;
     private final List<AbstractPredicateGroup> predicateGroups;
     private final int predicateNum;
+
+//    public record Cover(
+//            PredicateBitmap containing,
+//            PredicateBitmap forwards,
+//            int uncovered
+//    ) {}
+    public static class Cover {
+        public PredicateBitmap containing;
+        public PredicateBitmap forwards;
+        public int uncovered;
+
+        public Cover(PredicateBitmap containing, PredicateBitmap forwards, int uncovered) {
+            this.containing = containing;
+            this.forwards = forwards;
+            this.uncovered = uncovered;
+        }
+}
+
+    public static class Result {
+        public List<Cover> covers = new ArrayList<>();
+        public List<Cover> terminals = new ArrayList<>();
+    }
 
     public CoverFinder(double errorRateThreshold, int totalTuplePairsNum, List<Evidence> er, List<AbstractPredicateGroup> predicateGroups) {
         this.errorThreshold = errorRateThreshold * totalTuplePairsNum;
@@ -38,17 +57,22 @@ public class CoverFinder {
         }
     }
 
-    private boolean isImplied(PredicateBitmap q, List<PredicateBitmap> cover) {
-        for (PredicateBitmap c : cover) {
-            if (c.isSubsetOf(q)) {
+    /**
+     * q is super set of any PredicateBitmap from cover
+     */
+    private boolean isImplied(PredicateBitmap q, List<Cover> cover) {
+        for (Cover c : cover) {
+            if (c.containing.isSubsetOf(q)) {
                 return true;
             }
         }
         return false;
     }
 
+    /**
+     * no subset of size |q|-1 cover this.er
+     */
     private boolean isMinimal(PredicateBitmap q) {
-        // no subset of size |q|-1 cover this.er
         for (int i = q.nextSetBit(0); i >= 0; i = q.nextSetBit(i + 1)) {
             PredicateBitmap pSub = q.copy();
             pSub.getBitSet().set(i, false);
@@ -59,15 +83,19 @@ public class CoverFinder {
         return true;
     }
 
-    private void findCover(PredicateBitmap pPath, List<Evidence> uncoveredEvidence, PredicateBitmap pForward, List<PredicateBitmap> cover) {
-//        System.out.println(pPath);
-        if (Evidence.size(uncoveredEvidence) <= errorThreshold) {
+    private void findCover(PredicateBitmap pPath, List<Evidence> uncoveredEvidence, PredicateBitmap pForward, Result result) {
+//        System.out.println("Node reached: Path = " +pPath.toSetString()+", Forward evidence = "+Evidence.size(uncoveredEvidence));
+
+        int uncoveredSize = Evidence.size(uncoveredEvidence);
+        if (uncoveredSize <= errorThreshold) {
             if (isMinimal(pPath)) {
-                cover.add(pPath);
+                result.covers.add(new Cover(pPath, null, uncoveredSize));
             }
             return;
-        } else if (pForward.isEmpty() || pPath.size() >= MAX_DC_LENGTH) {
-            return;
+//        } else if (pForward.isEmpty() || pPath.size() >= MAX_DC_LENGTH) {
+//            System.err.println("CoverFinder: 88");
+//            result.terminals.add(new Cover(pPath, uncoveredSize));
+//            return;
         } else {
             // sort pForward
             List<IntegerPair> coverage = new ArrayList<>();
@@ -76,7 +104,7 @@ public class CoverFinder {
                 int coverageCount = 0;
                 for (Evidence e : uncoveredEvidence) {
                     if (e.predicates().get(i)) {
-                        coverageCount += 1;
+                        coverageCount += e.multiplicity();
                     }
                 }
                 coverage.add(new IntegerPair(coverageCount, i));
@@ -84,12 +112,22 @@ public class CoverFinder {
             coverage.sort(Comparator.reverseOrder());
 
             for (IntegerPair p : coverage) {
+                if (p.left() * (MAX_DC_LENGTH - pPath.size()) < uncoveredSize - errorThreshold) {
+                    result.terminals.add(new Cover(pPath, pForward, uncoveredSize));
+                    return;
+                }
                 PredicateBitmap pPathNew = pPath.copy();
                 pPathNew.set(p.right);
-                if (isImplied(pPathNew, cover)) {
-                    // pPathNew.remove(p); // Useless
-                    continue;
-                }
+//                if (isImplied(pPathNew, result.covers)) {
+//                    // pPathNew.remove(p); // Useless
+//                    System.err.println("CoverFinder: 115");
+//                    continue;
+//                }
+//                if (isImplied(pPathNew, result.terminals)) {
+//                    System.err.println("CoverFinder: 119");
+//                    // pPathNew.remove(p); // Useless
+//                    continue;
+//                }
                 List<Evidence> uncoveredEvidenceNew = new ArrayList<>(uncoveredEvidence);
                 uncoveredEvidenceNew.removeIf(evidence -> evidence.predicates().get(p.right));
                 PredicateBitmap pForwardNew = pForward.copy();
@@ -100,25 +138,20 @@ public class CoverFinder {
 
                 pForward.getBitSet().set(p.right, false);
 
-                findCover(pPathNew, uncoveredEvidenceNew, pForwardNew, cover);
-                if (AIM_DC_NUM > 0 && cover.size() >= AIM_DC_NUM) {
+                findCover(pPathNew, uncoveredEvidenceNew, pForwardNew, result);
+                if (AIM_DC_NUM > 0 && result.covers.size() >= AIM_DC_NUM) {
                     return;
                 }
             }
         }
     }
 
-    public List<PredicateBitmap> findCover() {
-        try {
-            System.setOut(new PrintStream(new FileOutputStream("log.txt")));
-            List<PredicateBitmap> cover = new ArrayList<>();
-            PredicateBitmap q = new PredicateBitmap();
-            PredicateBitmap pForward = new PredicateBitmap();
-            pForward.set(0, predicateNum);
-            findCover(q, er, pForward, cover);
-            return cover;
-        } catch (FileNotFoundException e) {
-            throw new RuntimeException(e);
-        }
+    public Result findCover() {
+        Result covers = new Result();
+        PredicateBitmap q = new PredicateBitmap();
+        PredicateBitmap pForward = new PredicateBitmap();
+        pForward.set(0, predicateNum);
+        findCover(q, er, pForward, covers);
+        return covers;
     }
 }
