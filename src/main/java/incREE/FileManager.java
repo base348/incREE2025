@@ -1,6 +1,7 @@
 package incREE;
 
 import com.google.gson.reflect.TypeToken;
+import incREE.cover.Cover;
 import incREE.dataset.ColumnPair;
 import incREE.dataset.Relation;
 import incREE.evidence.*;
@@ -14,13 +15,12 @@ import java.util.stream.Collectors;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
-import incREE.staticDC.CoverFinder;
 
 public class FileManager {
     static Gson gson = new GsonBuilder()
             .registerTypeAdapter(PredicateBitmap.class, new PredicateBitmapAdapter())
             .create();
-    static final String FILENAME = "atom";
+    static final String FILENAME = "adult";
 
     private static void makePath() {
         File targetDir = new File("./output/" + FILENAME);
@@ -34,14 +34,14 @@ public class FileManager {
         return "./output/" + FILENAME + "/evidence_" + lineNumber + ".csv";
     }
 
-    static String coverFileName(int lineNumber) {
+    static String coverFileName(int lineNumber, int dcLength, int threshold) {
         makePath();
-        return "./output/" + FILENAME + "/cover_" + lineNumber + ".csv";
+        return String.format("./output/%s/cover_%d_%dl_%dth.json", FILENAME, lineNumber, dcLength, threshold);
     }
 
-    static String terminalFileName(int lineNumber) {
+    static String terminalFileName(int lineNumber, int dcLength, int threshold) {
         makePath();
-        return "./output/" + FILENAME + "/terminal_" + lineNumber + ".csv";
+        return String.format("./output/%s/terminal_%d_%dl_%dth.json", FILENAME, lineNumber, dcLength, threshold);
     }
 
     static String dcFileName(int lineNumber) {
@@ -52,11 +52,6 @@ public class FileManager {
     static String columnPairsFileName() {
         makePath();
         return "./output/" + FILENAME + "/columnPairs.json";
-    }
-
-    static String coverJsonFileName(int lineNumber) {
-        makePath();
-        return "./output/" + FILENAME + "/cover_" + lineNumber + ".json";
     }
 
     static String relationFileName() {
@@ -147,6 +142,9 @@ public class FileManager {
 
     static List<Evidence> loadEvidence(int size) throws IOException {
         List<Evidence> evidence = new ArrayList<>();
+        if (size == 0) {
+            return evidence;
+        }
         try (BufferedReader reader = new BufferedReader(new FileReader(evidenceFileName(size)))) {
             String line;
             while ((line = reader.readLine()) != null) {
@@ -164,15 +162,9 @@ public class FileManager {
         return evidence;
     }
 
-    private static void saveCover(List<CoverFinder.Cover> covers, String filename) {
-        StringBuilder builder = new StringBuilder();
-        for (CoverFinder.Cover cover : covers) {
-            encode(builder, cover.uncovered, cover.containing);
-        }
-        try (FileWriter writer = new FileWriter(filename)) {
-            // no headline
-            writer.write(builder.toString());
-            System.out.println("Evidence Map saved to CSV file: " + filename);
+    private static void saveCover(List<Cover> covers, String filename) {
+        try (BufferedWriter writer = new BufferedWriter(new FileWriter(filename))) {
+            gson.toJson(covers, writer);
         } catch (IOException e) {
             e.printStackTrace();
             System.exit(-1);
@@ -190,32 +182,22 @@ public class FileManager {
         builder.delete(builder.length() - 2, builder.length()).append(System.lineSeparator());
     }
 
-    static void saveCover(int size, CoverFinder.Result cover) {
-        saveCover(cover.covers, coverFileName(size));
+    static void saveCover(int size, List<Cover> cover, int dcLength, int threshold) {
+        saveCover(cover, coverFileName(size, dcLength, threshold));
     }
 
-    static void saveTerminal(int size, CoverFinder.Result cover) {
-        saveCover(cover.terminals, terminalFileName(size));
+    static void saveTerminal(int size, List<Cover> cover, int dcLength, int threshold) {
+        saveCover(cover, terminalFileName(size, dcLength, threshold));
     }
 
-    static void trailSave(int size, CoverFinder.Result cover) {
-        try (BufferedWriter writer = new BufferedWriter(new FileWriter(coverJsonFileName(size)))) {
-            gson.toJson(cover.covers, writer);
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-    }
-
-    static void trailLoad(int size) throws IOException {
+    static List<Cover> loadCover(int size, int dcLength, int threshold) throws IOException {
         BufferedReader reader = null;
 
         try {
-            reader = new BufferedReader(new FileReader(coverJsonFileName(size)));
+            reader = new BufferedReader(new FileReader(coverFileName(size, dcLength, threshold)));
 
-            Type listType = new TypeToken<List<CoverFinder.Cover>>(){}.getType();
-            List<PredicateGroup.JsonDTO> data = gson.fromJson(reader, listType);
-//            return AbstractPredicateGroup.fromJsonDTO(data);
-            System.out.println("Successfully loaded column pairs.");
+            Type listType = new TypeToken<List<Cover>>(){}.getType();
+            return gson.fromJson(reader, listType);
         } finally {
             if (reader != null) {
                 try {
@@ -227,41 +209,29 @@ public class FileManager {
         }
     }
 
-//    static CoverFinder.Result loadCover(int size) throws IOException {
-//        CoverFinder.Result result = new CoverFinder.Result();
-//        BufferedReader reader;
-//        String line;
-//        try {
-//            reader  = new BufferedReader(new FileReader(coverFileName(size)));
-//            while ((line = reader.readLine()) != null) {
-//                PredicateBitmap cover = new PredicateBitmap();
-//                String[] parts = line.split(",");
-//                for (int i = 1; i < parts.length; i++) {
-//                    cover.set(Integer.parseInt(parts[i].trim()));
-//                }
-//                result.covers.add(new CoverFinder.Cover(cover, Integer.parseInt(parts[0].trim())));
-//            }
-//
-//            reader  = new BufferedReader(new FileReader(terminalFileName(size)));
-//            while ((line = reader.readLine()) != null) {
-//                PredicateBitmap cover = new PredicateBitmap();
-//                String[] parts = line.split(",");
-//                for (int i = 1; i < parts.length; i++) {
-//                    cover.set(Integer.parseInt(parts[i].trim()));
-//                }
-//                result.terminals.add(new CoverFinder.Cover(cover, Integer.parseInt(parts[0].trim())));
-//            }
-//        } catch (IOException e) {
-//            System.out.println("Evidence file " + evidenceFileName(size)  + " not found.");
-//            throw e;
-//        }
-//        return result;
-//    }
+    static List<Cover> loadTerminal(int size, int dcLength, int threshold) throws IOException {
+        BufferedReader reader = null;
 
-    static void writeExpression(int size, CoverFinder.Result cover) throws IOException {
+        try {
+            reader = new BufferedReader(new FileReader(terminalFileName(size, dcLength, threshold)));
+
+            Type listType = new TypeToken<List<Cover>>(){}.getType();
+            return gson.fromJson(reader, listType);
+        } finally {
+            if (reader != null) {
+                try {
+                    reader.close();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            }
+        }
+    }
+
+    static void writeExpression(int size, List<Cover> covers) throws IOException {
         List<AbstractPredicate> allPredicates = loadAbstractPredicateGroups().get(0).allPredicates;
         StringBuilder builder = new StringBuilder();
-        for (CoverFinder.Cover dc : cover.covers) {
+        for (Cover dc : covers) {
             builder.append("NOT ");
             for (int i = dc.containing.nextSetBit(0); i >= 0; i = dc.containing.nextSetBit(i + 1)) {
                 builder.append("(").append(allPredicates.get(i).getNegativeExpression()).append(") AND ");

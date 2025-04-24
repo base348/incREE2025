@@ -1,59 +1,44 @@
-package incREE.staticDC;
+package incREE.cover;
 
 import incREE.evidence.*;
 
 import java.util.*;
 
-public class CoverFinder {
+public class StaticCoverFinder {
 
     private static final int AIM_DC_NUM = -1;
-    private static final int MAX_DC_LENGTH = 6;
+    private final int maxDcLength;
 
-    private final double errorThreshold;
+    private final int errorThreshold;
     private final List<Evidence> er;
     private final List<AbstractPredicateGroup> predicateGroups;
     private final int predicateNum;
-
-//    public record Cover(
-//            PredicateBitmap containing,
-//            PredicateBitmap forwards,
-//            int uncovered
-//    ) {}
-    public static class Cover {
-        public PredicateBitmap containing;
-        public PredicateBitmap forwards;
-        public int uncovered;
-
-        public Cover(PredicateBitmap containing, PredicateBitmap forwards, int uncovered) {
-            this.containing = containing;
-            this.forwards = forwards;
-            this.uncovered = uncovered;
-        }
-}
 
     public static class Result {
         public List<Cover> covers = new ArrayList<>();
         public List<Cover> terminals = new ArrayList<>();
     }
 
-    public CoverFinder(double errorRateThreshold, int totalTuplePairsNum, List<Evidence> er, List<AbstractPredicateGroup> predicateGroups) {
-        this.errorThreshold = errorRateThreshold * totalTuplePairsNum;
+    public StaticCoverFinder(int errorThreshold, List<Evidence> er, List<AbstractPredicateGroup> predicateGroups, int dcLength) {
+        this.errorThreshold = errorThreshold;
         this.er = er;
         this.predicateGroups = predicateGroups;
         this.predicateNum = predicateGroups.get(0).getAllPredicatesNum();
+        this.maxDcLength = dcLength;
     }
 
-    public CoverFinder(double errorRateThreshold, int totalTuplePairsNum, Map<PredicateBitmap, Integer> evidenceMap, List<AbstractPredicateGroup> predicateGroups) {
-        this.errorThreshold = errorRateThreshold * totalTuplePairsNum;
+    public StaticCoverFinder(int errorThreshold, Map<PredicateBitmap, Integer> evidenceMap, List<AbstractPredicateGroup> predicateGroups, int dcLength) {
+        this.errorThreshold = errorThreshold;
         this.er = Evidence.fromMap(evidenceMap);
         this.predicateGroups = predicateGroups;
         this.predicateNum = predicateGroups.get(0).getAllPredicatesNum();
+        this.maxDcLength = dcLength;
     }
 
-    private record IntegerPair(int left, int right) implements Comparable<IntegerPair> {
+    private record IntegerPair(long left, int right) implements Comparable<IntegerPair> {
         @Override
         public int compareTo(IntegerPair other) {
-            return Integer.compare(left, other.left);
+            return Long.compare(left, other.left);
         }
     }
 
@@ -76,7 +61,7 @@ public class CoverFinder {
         for (int i = q.nextSetBit(0); i >= 0; i = q.nextSetBit(i + 1)) {
             PredicateBitmap pSub = q.copy();
             pSub.getBitSet().set(i, false);
-            if (Evidence.satisfies(pSub, er, (int) errorThreshold)) {
+            if (Evidence.satisfies(pSub, er, errorThreshold)) {
                 return false;
             }
         }
@@ -86,16 +71,11 @@ public class CoverFinder {
     private void findCover(PredicateBitmap pPath, List<Evidence> uncoveredEvidence, PredicateBitmap pForward, Result result) {
 //        System.out.println("Node reached: Path = " +pPath.toSetString()+", Forward evidence = "+Evidence.size(uncoveredEvidence));
 
-        int uncoveredSize = Evidence.size(uncoveredEvidence);
+        long uncoveredSize = Evidence.size(uncoveredEvidence);
         if (uncoveredSize <= errorThreshold) {
             if (isMinimal(pPath)) {
                 result.covers.add(new Cover(pPath, null, uncoveredSize));
             }
-            return;
-//        } else if (pForward.isEmpty() || pPath.size() >= MAX_DC_LENGTH) {
-//            System.err.println("CoverFinder: 88");
-//            result.terminals.add(new Cover(pPath, uncoveredSize));
-//            return;
         } else {
             // sort pForward
             List<IntegerPair> coverage = new ArrayList<>();
@@ -112,22 +92,12 @@ public class CoverFinder {
             coverage.sort(Comparator.reverseOrder());
 
             for (IntegerPair p : coverage) {
-                if (p.left() * (MAX_DC_LENGTH - pPath.size()) < uncoveredSize - errorThreshold) {
+                if (p.left() * (maxDcLength - pPath.size()) < uncoveredSize - errorThreshold) {
                     result.terminals.add(new Cover(pPath, pForward, uncoveredSize));
                     return;
                 }
                 PredicateBitmap pPathNew = pPath.copy();
                 pPathNew.set(p.right);
-//                if (isImplied(pPathNew, result.covers)) {
-//                    // pPathNew.remove(p); // Useless
-//                    System.err.println("CoverFinder: 115");
-//                    continue;
-//                }
-//                if (isImplied(pPathNew, result.terminals)) {
-//                    System.err.println("CoverFinder: 119");
-//                    // pPathNew.remove(p); // Useless
-//                    continue;
-//                }
                 List<Evidence> uncoveredEvidenceNew = new ArrayList<>(uncoveredEvidence);
                 uncoveredEvidenceNew.removeIf(evidence -> evidence.predicates().get(p.right));
                 PredicateBitmap pForwardNew = pForward.copy();

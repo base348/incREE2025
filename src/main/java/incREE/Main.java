@@ -1,23 +1,28 @@
 package incREE;
 
-import com.google.gson.stream.JsonWriter;
 import incREE.dataset.Input;
 import incREE.dataset.Relation;
 import incREE.evidence.*;
 import incREE.evidence.incEvidence.IncEvidenceSetBuilder;
-import incREE.staticDC.CoverFinder;
+import incREE.cover.StaticCoverFinder;
 
 import java.io.IOException;
-import java.io.Writer;
 import java.util.*;
 
 public class Main {
 
-    private static final int CURRENT_LINES = 10000;
-    private static final int INC_LINES = 9800;
+    private static final int CURRENT_LINES = 30000;
+    private static final int INC_LINES = 30000;
 
     private static void merge(Map<PredicateBitmap, Integer> map1, Map<PredicateBitmap, Integer> map2) {
         map2.forEach((key, value) -> map1.merge(key, value, Integer::sum));
+    }
+
+    private static void subtract(Map<PredicateBitmap, Integer> map1, Map<PredicateBitmap, Integer> map2) {
+        map2.forEach((key, value) -> {
+            map1.merge(key, -value, Integer::sum); // 减去对应的值
+            map1.remove(key, 0); // 如果减完后值为0，则移除该键值对
+        });
     }
 
     private static void mergeAndSave() {
@@ -34,71 +39,43 @@ public class Main {
         FileManager.saveEvidence(CURRENT_LINES + INC_LINES, evidence);
     }
 
-
-    private static void test() {
-        Input input = new Input("adult.csv");
-        Relation r = input.getRelation(CURRENT_LINES);
-        EvidenceSetBuilder builder = new EvidenceSetBuilder(r);
-        builder.buildEvidenceSet();
-        Map<PredicateBitmap, Integer> e = builder.collect();
-        System.out.println("Evidence Set build complete.");
-//        DCFinder dcFinder = new DCFinder(0.1, r.getTotalTuplePairs(), r.predicateSpace, e1);
-//        List<List<Predicate<?>>> cover = dcFinder.findCover();
-
-        IncEvidenceSetBuilder incEvidence = new IncEvidenceSetBuilder(r, INC_LINES);
-        Map<PredicateBitmap, Integer> eInc = incEvidence.build();
-        System.out.println("Inc Evidence Set build complete.");
-
-//        CoverFinder dcFinder = new CoverFinder(0, r.getTotalTuplePairs(), e);
-//        List<List<Predicate<?>>> cover = dcFinder.findCover();
-//        System.out.println("DC Finder complete.");
-
-//        DynEI incDC = new DynEI(e, eInc, r.predicateSpace, cover);
-//        incDC.DynDC();
-
-//        cover.forEach(dc -> Checker.checkDCNaive(r, dc));
-//        DCRanker ranker = new DCRanker(cover, er);
-//        ranker.getRankedDC();
-    }
-
     private static void buildEvidenceSetAndSave() {
         Map<PredicateBitmap, Integer> e = buildEvidenceSet();
         FileManager.saveEvidence(CURRENT_LINES, e);
     }
 
     private static Map<PredicateBitmap, Integer> buildEvidenceSet() {
-        Input input = new Input(FileManager.relationFileName());
-        Relation r = input.getRelation(CURRENT_LINES);
+        Input input = new Input(FileManager.relationFileName()).read(CURRENT_LINES);
+        Relation r = input.getRelation();
         EvidenceSetBuilder builder = new EvidenceSetBuilder(r);
         builder.buildEvidenceSetNaive();
         return builder.collect();
     }
 
     private static Map<PredicateBitmap, Integer> buildIncEvidenceSet() {
-        Input input = new Input(FileManager.relationFileName());
-        Relation r = input.getRelation(CURRENT_LINES, INC_LINES);
+        Input input = new Input(FileManager.relationFileName()).read(CURRENT_LINES).readInc(INC_LINES);
+        Relation r = input.getRelation();
         IncEvidenceSetBuilder builder = new IncEvidenceSetBuilder(r, INC_LINES);
         return builder.build();
     }
 
     private static void saveColumnPairs() {
-        Input input = new Input(FileManager.relationFileName());
-        Relation r = input.getRelation(CURRENT_LINES + INC_LINES);
+        Relation r = new Input(FileManager.relationFileName()).read().getRelation();
         List<DataPredicateGroup> predicateGroups = r.predicateGroups;
-
         FileManager.saveColumnPairs(predicateGroups);
     }
 
-    private static void findCover() throws IOException {
+    private static void findCover(double errorRate, int dcLength) throws IOException {
         List<Evidence> evidence = FileManager.loadEvidence(CURRENT_LINES);
         List<AbstractPredicateGroup> predicateGroups = FileManager.loadAbstractPredicateGroups();
-        CoverFinder coverFinder = new CoverFinder(0, Evidence.size(evidence), evidence, predicateGroups);
-        CoverFinder.Result r = coverFinder.findCover();
+        int errorThreshold = (int)(errorRate * Evidence.size(evidence));
+        dcLength = Math.min(dcLength, predicateGroups.size());
+        StaticCoverFinder coverFinder = new StaticCoverFinder(errorThreshold, evidence, predicateGroups, dcLength);
+        StaticCoverFinder.Result r = coverFinder.findCover();
         System.out.println("Cover find complete.");
-//        FileManager.saveCover(CURRENT_LINES, r);
-//        FileManager.saveTerminal(CURRENT_LINES, r);
-//        FileManager.writeExpression(CURRENT_LINES, r);
-        FileManager.trailSave(CURRENT_LINES, r);
+        FileManager.saveCover(CURRENT_LINES, r.covers, dcLength, errorThreshold);
+        FileManager.saveTerminal(CURRENT_LINES, r.terminals, dcLength, errorThreshold);
+//        FileManager.writeExpression(CURRENT_LINES, r.covers);
     }
 
     public static void main(String[] args) throws Exception {
@@ -107,8 +84,7 @@ public class Main {
 //        saveColumnPairs();
 //        buildEvidenceSetAndSave();
 //        mergeAndSave();
-        findCover();
-//        FileManager.trailLoad(CURRENT_LINES);
+        findCover(0, 6);
 
         long endTime = System.currentTimeMillis();
         long elapsedTime = endTime - startTime;

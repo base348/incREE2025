@@ -20,11 +20,9 @@ public class RawColumn {
     private final String name;
     private final List<String> values = new ArrayList<String>();
     private Type type = Type.LONG;
-    private final int currentLineNumber;
 
-    public RawColumn(String name, int currentLineNumber) {
+    public RawColumn(String name) {
         this.name = name;
-        this.currentLineNumber = currentLineNumber;
     }
 
     public Type getTypeByName() {
@@ -62,23 +60,23 @@ public class RawColumn {
         return values.get(line) == null ? "" : values.get(line);
     }
 
-    public Column<?> build(int lineCount) {
+    public Column<?> build(int totalSize, int PLISize) {
         switch (this.getTypeByName()) {
             case STRING:
-                Column<String> column = new Column<>(name, Type.STRING, currentLineNumber);
-                for (int line = 0; line < lineCount; line++) {
+                Column<String> column = new Column<>(name, Type.STRING, PLISize);
+                for (int line = 0; line < totalSize; line++) {
                     column.addLine(getString(line));
                 }
                 return column;
             case NUMERIC:
-                Column<Double> column1 = new Column<>(name, Type.NUMERIC, currentLineNumber);
-                for (int line = 0; line < lineCount; line++) {
+                Column<Double> column1 = new Column<>(name, Type.NUMERIC, PLISize);
+                for (int line = 0; line < totalSize; line++) {
                     column1.addLine(getDouble(line));
                 }
                 return column1;
             case LONG:
-                Column<Long> column2 = new Column<>(name, Type.LONG, currentLineNumber);
-                for (int line = 0; line < lineCount; line++) {
+                Column<Long> column2 = new Column<>(name, Type.LONG, PLISize);
+                for (int line = 0; line < totalSize; line++) {
                     column2.addLine(getLong(line));
                 }
                 return column2;

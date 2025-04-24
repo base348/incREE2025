@@ -1,4 +1,4 @@
-package incREE.incDC;
+package incREE.cover;
 
 import incREE.evidence.Predicate;
 import incREE.evidence.PredicateBitmap;

@@ -25,8 +25,8 @@ public record Evidence(PredicateBitmap predicates, int multiplicity) implements 
         return predicates.contains(p);
     }
 
-    public static int size(List<Evidence> evidences) {
-        int size = 0;
+    public static long size(List<Evidence> evidences) {
+        long size = 0;
         for (Evidence evidence : evidences) {
             size += evidence.multiplicity;
         }

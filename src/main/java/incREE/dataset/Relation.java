@@ -14,18 +14,18 @@ public class Relation {
     private static final double MINIMUM_SHARED_VALUE = 0.3d;
     public final String name;
     public int currentSize; // After currentSize updated, previous TuplePairId can never be used
-    public final int totalSize;
+//    public final int totalSize;
     public List<String> attributeNames = new ArrayList<String>();
     public List<Column<?>> attributes;
     int attributeCount;
     public final List<Predicate<?>> predicateSpace = new ArrayList<>();
     public final List<DataPredicateGroup> predicateGroups = new ArrayList<>();
 
-    public Relation(String name, List<Column<?>> attributes, int currentSize, int totalSize) {
+    public Relation(String name, List<Column<?>> attributes, int currentSize) {
         this.name = name;
         this.attributes = attributes;
         this.currentSize = currentSize;
-        this.totalSize = totalSize;
+//        this.totalSize = totalSize;
         this.attributeCount = attributes.size();
         for (Column<?> attribute : attributes) {
             attributeNames.add(attribute.name);

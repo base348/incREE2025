@@ -1,4 +1,4 @@
-package incREE.staticDC;
+package incREE.cover;
 
 import incREE.evidence.Evidence;
 import incREE.evidence.Predicate;

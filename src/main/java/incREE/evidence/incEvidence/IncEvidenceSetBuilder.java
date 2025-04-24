@@ -50,16 +50,15 @@ public class IncEvidenceSetBuilder {
         for (int i = currentTupleSize; i < currentTupleSize + incTupleSize; i++) {
             reconcileContexts(new EvidenceContext(i, (BitSet) previous.clone(), head.copy()));
             previous.set(i);
+            if (i % 1000 == 0) {
+                System.out.println((float)i/incTupleSize*100 + "% completed.");
+            }
         }
-
-        System.out.println("evidenceMap with size " + getSize(evidenceMap));
 
         //cal image here
         getImage(evidenceMap).forEach((key, value) -> {
             evidenceMap.merge(key, value, Integer::sum);
         });
-
-        System.out.println("evidenceMap with size " + getSize(evidenceMap));
 
         return evidenceMap;
     }
