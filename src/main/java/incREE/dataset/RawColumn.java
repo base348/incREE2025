@@ -45,11 +45,7 @@ public class RawColumn {
 
 
     public Long getLong(int line) {
-        try {
-            return Long.valueOf(values.get(line));
-        } catch (NumberFormatException e) {
-            return Long.MIN_VALUE;
-        }
+        return Long.valueOf(values.get(line));
     }
 
     public Double getDouble(int line) {
@@ -61,27 +57,31 @@ public class RawColumn {
     }
 
     public Column<?> build(int totalSize, int PLISize) {
-        switch (this.getTypeByName()) {
-            case STRING:
-                Column<String> column = new Column<>(name, Type.STRING, PLISize);
-                for (int line = 0; line < totalSize; line++) {
-                    column.addLine(getString(line));
-                }
-                return column;
-            case NUMERIC:
-                Column<Double> column1 = new Column<>(name, Type.NUMERIC, PLISize);
-                for (int line = 0; line < totalSize; line++) {
-                    column1.addLine(getDouble(line));
-                }
-                return column1;
-            case LONG:
-                Column<Long> column2 = new Column<>(name, Type.LONG, PLISize);
-                for (int line = 0; line < totalSize; line++) {
-                    column2.addLine(getLong(line));
-                }
-                return column2;
-            default:
-                return null;
+        try {
+            switch (this.getTypeByName()) {
+                case STRING:
+                    Column<String> column = new Column<>(name, Type.STRING, PLISize);
+                    for (int line = 0; line < totalSize; line++) {
+                        column.addLine(getString(line));
+                    }
+                    return column;
+                case NUMERIC:
+                    Column<Double> column1 = new Column<>(name, Type.NUMERIC, PLISize);
+                    for (int line = 0; line < totalSize; line++) {
+                        column1.addLine(getDouble(line));
+                    }
+                    return column1;
+                case LONG:
+                    Column<Long> column2 = new Column<>(name, Type.LONG, PLISize);
+                    for (int line = 0; line < totalSize; line++) {
+                        column2.addLine(getLong(line));
+                    }
+                    return column2;
+                default:
+                    return null;
+            }
+        } catch (NumberFormatException e) {
+            return null;
         }
     }
 

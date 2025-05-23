@@ -14,6 +14,12 @@ public class IncEvidenceSetBuilder {
     private final int incTupleSize;
     private final Map<PredicateBitmap, Integer> evidenceMap;
 
+    // init with != < ≤
+    private final PredicateBitmap head;
+
+//    private long total = 0L;
+//    private long diff = 0L;
+
     private static final TreeSet<Integer> EMPTY_SET = new TreeSet<>();
 
     private PredicateBitmap getEvidenceHead() {
@@ -38,6 +44,7 @@ public class IncEvidenceSetBuilder {
         this.currentTupleSize = relation.currentSize;
         this.evidenceMap = new HashMap<>();
         this.incTupleSize = incTupleSize;
+        this.head = getEvidenceHead();
     }
 
     public Map<PredicateBitmap, Integer> build() {
@@ -45,13 +52,11 @@ public class IncEvidenceSetBuilder {
         BitSet previous = new BitSet(currentTupleSize);
         previous.set(0, currentTupleSize);
 
-        // init with != < ≤
-        PredicateBitmap head = getEvidenceHead();
         for (int i = currentTupleSize; i < currentTupleSize + incTupleSize; i++) {
             reconcileContexts(new EvidenceContext(i, (BitSet) previous.clone(), head.copy()));
             previous.set(i);
             if (i % 1000 == 0) {
-                System.out.println((float)i/incTupleSize*100 + "% completed.");
+                System.out.println((float)(i-currentTupleSize)/incTupleSize*100 + "% completed.");
             }
         }
 
@@ -59,6 +64,9 @@ public class IncEvidenceSetBuilder {
         getImage(evidenceMap).forEach((key, value) -> {
             evidenceMap.merge(key, value, Integer::sum);
         });
+
+//        System.out.println("All evidence: " + this.predicateGroups.get(0).getAllPredicatesNum());
+//        System.out.println("Diff: " + diff + "; Avg Diff: " + diff / total);
 
         return evidenceMap;
     }
@@ -72,19 +80,9 @@ public class IncEvidenceSetBuilder {
     }
 
     private PredicateBitmap getImage(PredicateBitmap bitmap) {
-
-        if (notLegal(bitmap)) {
-            System.err.println(bitmap+" bitmap is not legal");
-        }
-
         PredicateBitmap copy = new PredicateBitmap();
         for (DataPredicateGroup predicateGroup : relation.predicateGroups) {
             predicateGroup.setImage(bitmap, copy);
-        }
-
-        // check if copy is legal
-        if (notLegal(copy)) {
-            System.err.println(copy+" copied is not legal");
         }
         return copy;
     }
@@ -108,6 +106,12 @@ public class IncEvidenceSetBuilder {
     private void collect(List<EvidenceContext> contexts) {
         for (EvidenceContext context : contexts) {
             evidenceMap.merge(context.evidence(), context.tidRight().cardinality(), Integer::sum);
+            // 测试
+//            PredicateBitmap diff = context.evidence().copy();
+//            diff.xor(head);
+//            int diffSize = diff.size();
+//            this.diff += diffSize;
+//            this.total ++;
         }
     }
 

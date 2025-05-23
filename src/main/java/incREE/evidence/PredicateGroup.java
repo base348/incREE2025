@@ -95,7 +95,11 @@ public abstract class PredicateGroup {
     }
 
     public boolean isReflexive() {
-        return isReflexive;
+        return this.isReflexive;
+    }
+
+    public  boolean isNumeric() {
+        return this.type == Type.NUMERIC;
     }
 
     public int contains(int predicate) {
@@ -159,6 +163,18 @@ public abstract class PredicateGroup {
             bs = groupGet(bitSet);
         }
         this.getReversed().groupSet(aim, bs);
+    }
+
+    public void setImage(int bit, PredicateBitmap aim) {
+        int pos = bit - this.offset;
+        if (pos > 1) {
+            if (pos % 2 == 0) {
+                bit ++;
+            } else {
+                bit --;
+            }
+        }
+        this.getReversed().groupSet(aim, bit - offset);
     }
 
     /**

@@ -34,6 +34,11 @@ public class FileManager {
         return "./output/" + FILENAME + "/evidence_" + lineNumber + ".csv";
     }
 
+    static String uncoveredEvidenceFileName(int lineNumber, int dcLength, int threshold) {
+        makePath();
+        return String.format("./output/%s/evidence_uncovered_%d_%dl_%dth.csv", FILENAME, lineNumber, dcLength, threshold);
+    }
+
     static String coverFileName(int lineNumber, int dcLength, int threshold) {
         makePath();
         return String.format("./output/%s/cover_%d_%dl_%dth.json", FILENAME, lineNumber, dcLength, threshold);
@@ -119,21 +124,48 @@ public class FileManager {
         }
     }
 
-    static void saveEvidence(int size, Map<PredicateBitmap, Integer> evidence) {
-        saveEvidence(size, Evidence.fromMap(evidence));
+    static void saveUncovered(int size, List<Evidence> evidence, int dcLength, int threshold) {
+        saveEvidence(uncoveredEvidenceFileName(size, dcLength, threshold), evidence);
     }
 
-    static void saveEvidence(int size, List<Evidence> evidences) {
+    static List<Evidence> loadUncovered(int size, int dcLength, int threshold) throws IOException {
+        List<Evidence> evidence = new ArrayList<>();
+        if (size == 0) {
+            return evidence;
+        }
+        try (BufferedReader reader = new BufferedReader(new FileReader(uncoveredEvidenceFileName(size, dcLength, threshold)))) {
+            String line;
+            while ((line = reader.readLine()) != null) {
+                PredicateBitmap key = new PredicateBitmap();
+                String[] parts = line.split(",");
+                for (int i = 1; i < parts.length; i++) {
+                    key.set(Integer.parseInt(parts[i].trim()));
+                }
+                evidence.add(new Evidence(key, Integer.parseInt(parts[0].trim())));
+            }
+        } catch (IOException e) {
+            System.out.println("Evidence file " + evidenceFileName(size)  + " not found.");
+            throw e;
+        }
+        return evidence;
+    }
+
+    static void saveEvidence(int size, Map<PredicateBitmap, Integer> evidence) {
+        saveEvidence(evidenceFileName(size), Evidence.fromMap(evidence));
+        System.out.println("不重复的证据行数: "+evidence.size());
+    }
+
+    static void saveEvidence(String fileName, List<Evidence> evidences) {
         evidences.sort(Evidence::compareTo);
         StringBuilder builder = new StringBuilder();
         for (Evidence evidence : evidences) {
             encode(builder, evidence.multiplicity(), evidence.predicates());
         }
 
-        try (FileWriter writer = new FileWriter(evidenceFileName(size))) {
+        try (FileWriter writer = new FileWriter(fileName)) {
             // no headline
             writer.write(builder.toString());
-            System.out.println("Evidence Map saved to CSV file: " + evidenceFileName(size));
+            System.out.println("Evidence Map saved to CSV file: " + fileName);
         } catch (IOException e) {
             e.printStackTrace();
             System.exit(-1);
@@ -165,6 +197,7 @@ public class FileManager {
     private static void saveCover(List<Cover> covers, String filename) {
         try (BufferedWriter writer = new BufferedWriter(new FileWriter(filename))) {
             gson.toJson(covers, writer);
+            System.out.println("Cover saved to CSV file: " + filename);
         } catch (IOException e) {
             e.printStackTrace();
             System.exit(-1);

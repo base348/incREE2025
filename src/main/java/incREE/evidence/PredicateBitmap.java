@@ -3,6 +3,9 @@ package incREE.evidence;
 import ch.javasoft.bitset.BitSetFactory;
 import ch.javasoft.bitset.IBitSet;
 import ch.javasoft.bitset.LongBitSet.LongBitSetFactory;
+import incREE.cover.Cover;
+
+import java.util.List;
 
 public class PredicateBitmap {
 
@@ -124,5 +127,19 @@ public class PredicateBitmap {
 
     public int nextSetBit(int n) {
         return bitset.nextSetBit(n);
+    }
+
+
+    public boolean isSelfSymmetry(List<AbstractPredicateGroup> predicateGroups) {
+        return this.equals(this.getImage(predicateGroups));
+    }
+
+    public PredicateBitmap getImage(List<AbstractPredicateGroup> predicateGroups) {
+        List<AbstractPredicate> allPredicates = predicateGroups.get(0).allPredicates;
+        PredicateBitmap newContaining = new PredicateBitmap();
+        for (int i = this.nextSetBit(0); i >= 0; i = this.nextSetBit(i + 1)) {
+            allPredicates.get(i).findGroup(predicateGroups).setImage(i, newContaining);
+        }
+        return newContaining;
     }
 }

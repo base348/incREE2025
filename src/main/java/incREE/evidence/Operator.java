@@ -40,6 +40,14 @@ public enum Operator {
         };
     }
 
+    public boolean isSelfSymmetry() {
+        return switch (this) {
+            case EQUAL -> true;
+            case NOT_EQUAL -> true;
+            default -> false;
+        };
+    }
+
     public <T extends Comparable<T>> boolean compareAttributes(T value1, T value2) {
         return switch (this) {
             case EQUAL -> value1.equals(value2);

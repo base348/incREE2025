@@ -109,6 +109,9 @@ public class Input {
                 for (int i = 0; i < columns.length; i++) {
                     rawColumns.get(i).addLine(columns[i]);
                 }
+                if (columns.length != rawColumns.size()) {
+                    System.err.println("Input failed: line with wrong number of columns: " + line);
+                }
                 lineCount++;
                 if (lineCount == maxLine) {
                     return lineCount;
@@ -132,7 +135,10 @@ public class Input {
     public Relation getRelation() {
         List<Column<?>> columns = new ArrayList<>(columnCount);
         for (int i = 0; i < columnCount; i++) {
-            columns.add(rawColumns.get(i).build(length, lengthPLI));
+            Column<?> built = rawColumns.get(i).build(length, lengthPLI);
+            if (built != null) {
+                columns.add(built);
+            }
         }
         return new Relation(filename.substring(0, filename.length()-4), columns, lengthPLI);
     }

@@ -33,13 +33,13 @@ public record Evidence(PredicateBitmap predicates, int multiplicity) implements 
         return size;
     }
 
-    public boolean satisfied(PredicateBitmap dc) {
+    public boolean isCoveredBy(PredicateBitmap dc) {
         return predicates.disjoint(dc);
     }
 
-    public static boolean satisfies(PredicateBitmap dc, List<Evidence> er, int errorThreshold) {
+    public static boolean isApproximateCover(PredicateBitmap dc, List<Evidence> er, int errorThreshold) {
         for (Evidence e : er) {
-            if (!e.satisfied(dc)) {
+            if (!e.isCoveredBy(dc)) {
                 errorThreshold -= e.multiplicity();
                 if (errorThreshold < 0) {
                     return false;
@@ -47,6 +47,16 @@ public record Evidence(PredicateBitmap predicates, int multiplicity) implements 
             }
         }
         return true;
+    }
+
+    public static int numUncover(PredicateBitmap dc, List<Evidence> er) {
+        int count = 0;
+        for (Evidence e : er) {
+            if (!e.isCoveredBy(dc)) {
+                count += e.multiplicity();
+            }
+        }
+        return count;
     }
 
     @Override
