@@ -23,7 +23,7 @@ public class StaticCoverFinder {
     public static class Result {
         public List<Cover> covers = new ArrayList<>();
 //        public List<Cover> terminals = new ArrayList<>();
-//        public Map<PredicateBitmap, Integer> uncovered = new HashMap<>();
+        public Map<PredicateBitmap, Integer> uncovered = new HashMap<>();
     }
 
     public StaticCoverFinder(int errorThreshold, List<Evidence> er, List<AbstractPredicateGroup> predicateGroups, int dcLength, boolean useSymmetry) {
@@ -107,9 +107,9 @@ public class StaticCoverFinder {
         if (uncoveredSize <= errorThreshold) {
             if (isMinimal(pPath)) {
                 result.covers.add(new Cover(pPath, uncoveredSize));
-//                uncoveredEvidence.forEach((evidence) -> {
-//                    result.uncovered.put(evidence.predicates(), evidence.multiplicity());
-//                });
+                uncoveredEvidence.forEach((evidence) -> {
+                    result.uncovered.put(evidence.predicates(), evidence.multiplicity());
+                });
             }
         } else {
             // sort pForward
@@ -175,9 +175,7 @@ public class StaticCoverFinder {
         }
     }
 
-    public void findCoverInc(PredicateBitmap start, List<Cover> covers) {
-        Result result = new Result();
-        result.covers = covers;
+    public void findCoverInc(PredicateBitmap start, Result result) {
         List<Evidence> uncovered = new ArrayList<>(er);
         uncovered.removeIf(evidence -> evidence.isCoveredBy(start));
 

@@ -15,11 +15,17 @@ public class DynEI {
     private final int threshold;
     private final int dcLength;
 
-    public DynEI(List<Evidence> erAll, List<Evidence> erOld, List<Cover> coverCurrent, List<AbstractPredicateGroup> predicateGroups, int threshold, int dcLength) {
-        this.erAll = erAll;
-        Map<PredicateBitmap, Integer> tmp = Evidence.toMap(erAll);
-        subtract(tmp, Evidence.toMap(erOld));
-        this.erInc = Evidence.fromMap(tmp);
+    public DynEI(List<Evidence> erAll, List<Evidence> erOld, List<Evidence> erUnc, List<Cover> coverCurrent, List<AbstractPredicateGroup> predicateGroups, int threshold, int dcLength) {
+//        this.erAll = erAll;
+        Map<PredicateBitmap, Integer> inc = Evidence.toMap(erAll);
+        Map<PredicateBitmap, Integer> all = new HashMap<>(inc);
+        Map<PredicateBitmap, Integer> old = Evidence.toMap(erOld);
+        subtract(inc, old);
+        subtract(old, Evidence.toMap(erUnc));
+        remove(inc, old);
+        remove(all, old);
+        this.erAll = Evidence.fromMap(all);
+        this.erInc = Evidence.fromMap(inc);
         this.coverCurrent = coverCurrent;
         this.predicateGroups = predicateGroups;
         this.threshold = threshold;
@@ -42,6 +48,12 @@ public class DynEI {
         });
     }
 
+    private static void remove(Map<PredicateBitmap, Integer> map1, Map<PredicateBitmap, Integer> map2) {
+        map2.forEach((key, value) -> {
+            map1.remove(key);
+        });
+    }
+
     private static PredicateBitmap fromString(String bitStr){
         PredicateBitmap ans = new PredicateBitmap();
         for (int i = 0; i < bitStr.length(); i++) {
@@ -50,6 +62,15 @@ public class DynEI {
             }
         }
         return ans;
+    }
+
+    public static boolean notAllCovered(Evidence evidence, List<Cover> cover) {
+        for (Cover c : cover) {
+            if (!evidence.isCoveredBy(c.containing)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     // for debug
@@ -63,8 +84,8 @@ public class DynEI {
         return candidate.isEmpty();
     }
 
-    public List<Cover> run() {
-//        StaticCoverFinder.Result covers = new StaticCoverFinder.Result();
+    public StaticCoverFinder.Result run() {
+        StaticCoverFinder.Result result = new StaticCoverFinder.Result();
         StaticCoverFinder finder = new StaticCoverFinder(threshold, erAll, predicateGroups, dcLength, false);
         List<Cover> violated = new ArrayList<>();
 
@@ -72,29 +93,38 @@ public class DynEI {
 
         for (Cover c : coverCurrent) {
             int numUncovered = Evidence.numUncover(c.containing, erInc);
-            if (numUncovered + c.uncovered <= threshold) {
-                // not violated
-                c.uncovered += numUncovered;
-            } else {
-                violated.add(c);
+            if (numUncovered != 0) {
+                if (numUncovered + c.uncovered <= threshold) {
+                    // not violated
+                    c.uncovered += numUncovered;
+                } else {
+                    violated.add(c);
+                }
             }
         }
-
-//        System.out.println("violated: " + violated.size());
-
         coverCurrent.removeAll(violated);
+
+        // uncovered by not invalid
+        List<Evidence> uncovered = new ArrayList<>();
+        for (Evidence e : erAll) {
+            if (notAllCovered(e, coverCurrent)) {
+                uncovered.add(e);
+            }
+        }
 
         int numViolated = violated.size();
         int numKeep =  numCurrent - numViolated;
 
-//        findAncestor(fromString("00000001100001011"), violated);
         violated.sort(Comparator.comparingInt(cover -> cover.containing.size()));
+
+        result.covers = coverCurrent;
+        result.uncovered = Evidence.toMap(uncovered);
 
         for (Cover v: violated) {
             if (v.containing.size() >= dcLength) {
                 break;
             }
-            finder.findCoverInc(v.containing, coverCurrent);
+            finder.findCoverInc(v.containing, result);
         }
 
         int numFinal = coverCurrent.size();
@@ -102,31 +132,13 @@ public class DynEI {
         System.out.println("Cover Find finished: " + numCurrent + " to " + numFinal + ", "
                 + (numFinal - numKeep) + "+; " + numViolated + "-;" );
 
-//        for (Evidence e : erInc) {
-//            List<Cover> violated = new ArrayList<>();
-//            for (Cover dc : coverCurrent) {
-//                if (dc.containing.isSubsetOf(e.predicates())) {
-//                    violated.add(dc);
-//                }
-//            }
-//            coverCurrent.removeAll(violated);
-//
-//            int count = 0;
-//            for (Cover dc : violated) {
-//                count = 0;
-//                for (Predicate<?> p : predicateSpace) {
-//                    if (!e.get(p.identifier)){
-//                        PredicateBitmap expandDC = dc.copy();
-//                        expandDC.set(p.identifier);
-//                        if (!isImplied(expandDC, coverCurrent)) {
-//                            coverCurrent.add(expandDC);
-//                            count++;
-//                        }
-//                    }
-//                }
-//                System.out.println(count + " new DC found.");
+//        List<Evidence> uncovered = new ArrayList<>();
+//        for (Evidence e : erAll) {
+//            if (notAllCovered(e, coverCurrent)) {
+//                uncovered.add(e);
 //            }
 //        }
-        return coverCurrent;
+//        result.uncovered = Evidence.toMap(uncovered);
+        return result;
     }
 }

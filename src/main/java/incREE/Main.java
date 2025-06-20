@@ -13,45 +13,37 @@ import java.util.*;
 
 public class Main {
 
-    private static final int CURRENT_LINES = 2000;
+    private static final int CURRENT_LINES = 5000;
     private static final int INC_LINES = 10;
 
-    private static void merge(Map<PredicateBitmap, Integer> map1, Map<PredicateBitmap, Integer> map2) {
-        map2.forEach((key, value) -> map1.merge(key, value, Integer::sum));
+    private static void buildEvidenceSetAndSave(int lines) {
+        Map<PredicateBitmap, Integer> e = buildEvidenceSet(lines);
+        FileManager.saveEvidence(lines, e);
     }
 
-    private static void mergeAndSave() {
+    private static void mergeAndSave(int cur, int inc) {
         Map<PredicateBitmap, Integer> evidence;
         Map<PredicateBitmap, Integer> incEvidence;
         try {
-            evidence = Evidence.toMap(FileManager.loadEvidence(CURRENT_LINES));
+            evidence = Evidence.toMap(FileManager.loadEvidence(cur));
         } catch (IOException e) {
             System.out.println("Building the required evidence map instead.");
-            evidence = buildEvidenceSet();
+            evidence = buildEvidenceSet(cur);
         }
-        incEvidence = buildIncEvidenceSet();
-        merge(evidence, incEvidence);
-        FileManager.saveEvidence(CURRENT_LINES + INC_LINES, evidence);
+        incEvidence = buildIncEvidenceSet(cur, inc);
+        Evidence.merge(evidence, incEvidence);
+        FileManager.saveEvidence(cur + inc, evidence);
     }
 
-    private static void buildEvidenceSetAndSave() {
-        Map<PredicateBitmap, Integer> e = buildEvidenceSet();
-        FileManager.saveEvidence(CURRENT_LINES, e);
-    }
-
-    private static Map<PredicateBitmap, Integer> buildEvidenceSet() {
-        Input input = new Input(FileManager.relationFileName()).read(CURRENT_LINES);
+    private static Map<PredicateBitmap, Integer> buildIncEvidenceSet(int cur, int inc) {
+        Input input = new Input(FileManager.relationFileName()).read(cur).readInc(inc);
         Relation r = input.getRelation();
-        EvidenceSetBuilder builder = new EvidenceSetBuilder(r);
-        builder.buildEvidenceSetNaive();
-        return builder.collect();
-    }
-
-    private static Map<PredicateBitmap, Integer> buildIncEvidenceSet() {
-        Input input = new Input(FileManager.relationFileName()).read(CURRENT_LINES).readInc(INC_LINES);
-        Relation r = input.getRelation();
-        IncEvidenceSetBuilder builder = new IncEvidenceSetBuilder(r, INC_LINES);
+        IncEvidenceSetBuilder builder = new IncEvidenceSetBuilder(r, inc);
         return builder.build();
+    }
+
+    private static Map<PredicateBitmap, Integer> buildEvidenceSet(int lines) {
+        return buildIncEvidenceSet(0, lines);
     }
 
     private static void saveColumnPairs() {
@@ -71,9 +63,15 @@ public class Main {
         System.out.println("Cover find complete.");
         System.out.println(r.covers.size() + " covers found.");
         FileManager.saveCover(tupleLines, r.covers, dcLength, errorThreshold);
-//        FileManager.saveUncovered(tupleLines, r.uncovered);
-//        FileManager.saveTerminal(tupleLines, r.terminals, dcLength, errorThreshold);
-//        FileManager.writeExpression(tupleLines, r.covers);
+
+        List<Evidence> uncovered = Evidence.fromMap(r.uncovered);
+//        for (Evidence e : evidence) {
+//            if (!isAllCovered(e, r.covers)) {
+//                uncovered.add(e);
+//            }
+//        }
+
+        FileManager.saveUncovered(tupleLines, uncovered, dcLength, errorThreshold);
     }
 
     private static boolean in(Cover cover, List<Cover> covers) {
@@ -108,69 +106,77 @@ public class Main {
 
     private static void analyzeIncCover(int current, int inc, int errorThreshold, int dcLength) throws IOException {
         List<Cover> cover = FileManager.loadCover(current, dcLength, errorThreshold);
-//        List<Cover> coverInc = FileManager.loadCover(CURRENT_LINES + INC_LINES, dcLength, errorThreshold);
-
-        // find cover by inc method
         List<Evidence> evidence = FileManager.loadEvidence(current);
         List<Evidence> evidenceAll = FileManager.loadEvidence(current + inc);
+        List<Evidence> evidenceUncovered;
+        try {
+            evidenceUncovered = FileManager.loadUncovered(current, dcLength, errorThreshold);
+        } catch (IOException ex) {
+            System.err.println("Error loading uncovered evidence. Calculating instead.");
+            evidenceUncovered = new ArrayList<>();
+            for (Evidence e : evidence) {
+                if (DynEI.notAllCovered(e, cover)) {
+                    evidenceUncovered.add(e);
+                }
+            }
+        }
         List<AbstractPredicateGroup> predicateGroups = FileManager.loadAbstractPredicateGroups();
 
-        DynEI finder = new DynEI(evidenceAll, evidence, cover, predicateGroups, errorThreshold, dcLength);
+        DynEI finder = new DynEI(evidenceAll, evidence, evidenceUncovered, cover, predicateGroups, errorThreshold, dcLength);
         finder.run();
-
-//        List<Cover> notfound = new ArrayList<>();
-
-//        for (Cover c : coverInc) {
-//            if (cover.contains(c) || in(c, cover)) {
-//                continue;
-//            } else {
-//                notfound.add(c);
-//            }
-//
-//        }
-
-//        System.out.println("Cover size: " + cover.size() + ", inc cover size: " +coverInc.size());
     }
 
     private static void findCoverInc(int current, int inc, int errorThreshold, int dcLength) throws IOException {
         List<Cover> cover = FileManager.loadCover(current, dcLength, errorThreshold);
         List<Evidence> evidence = FileManager.loadEvidence(current);
         List<Evidence> evidenceAll = FileManager.loadEvidence(current + inc);
-        List<AbstractPredicateGroup> predicateGroups = FileManager.loadAbstractPredicateGroups();
-        DynEI finder = new DynEI(evidenceAll, evidence, cover, predicateGroups, errorThreshold, dcLength);
-        cover = finder.run();
-//        System.out.println("Cover find complete.");
-//        System.out.println(r.covers.size() + " covers found.");
-        FileManager.saveCover(current + inc, cover, dcLength, errorThreshold);
-    }
-
-    private static void analyzeCover(Cover cover, List<Evidence> er, List<AbstractPredicateGroup> predicateGroups) {
-        List<Evidence> uncovered = new ArrayList<>();
-        int length = cover.containing.size();
-        String rep = getCoverRepresentation(cover, predicateGroups.get(0).allPredicates);
-        int uncoveredCount = 0;
-        for (Evidence evidence : er) {
-            if (!evidence.isCoveredBy(cover.containing)) {
-                uncovered.add(evidence);
-                uncoveredCount += evidence.multiplicity();
+        List<Evidence> evidenceUncovered;
+        try {
+            evidenceUncovered = FileManager.loadUncovered(current, dcLength, errorThreshold);
+        } catch (IOException ex) {
+            System.err.println("Error loading uncovered evidence. Calculating instead.");
+            evidenceUncovered = new ArrayList<>();
+            for (Evidence e : evidence) {
+                if (DynEI.notAllCovered(e, cover)) {
+                    evidenceUncovered.add(e);
+                }
             }
         }
-        PredicateBitmap bits = new PredicateBitmap();
-        for (int i = cover.containing.nextSetBit(0); i >= 0; i = cover.containing.nextSetBit(i + 1)) {
-            bits.or(AbstractPredicateGroup.findGroup(i, predicateGroups).bits);
-        }
-        System.out.println(bits.toSetString());
-        uncovered.forEach(evidence -> {
-//            System.out.println(evidence.predicates().toSetString());
-            evidence.predicates().andNot(bits);
-//            System.out.println(evidence.predicates().toSetString());
-//            System.out.println();
-        });
-//        System.out.println(uncoveredCount);
+        List<AbstractPredicateGroup> predicateGroups = FileManager.loadAbstractPredicateGroups();
 
-        StaticCoverFinder coverFinder = new StaticCoverFinder(0, er, predicateGroups, 6, true);
-        StaticCoverFinder.Result r = coverFinder.findCover(cover.containing);
-        System.out.println("Cover find complete.");
+        DynEI finder = new DynEI(evidenceAll, evidence, evidenceUncovered, cover, predicateGroups, errorThreshold, dcLength);
+        StaticCoverFinder.Result r = finder.run();
+        FileManager.saveCover(current + inc, r.covers, dcLength, errorThreshold);
+
+//        List<Evidence> uncovered = new ArrayList<>();
+//        for (Evidence e : evidenceAll) {
+//            if (DynEI.notAllCovered(e, cover)) {
+//                uncovered.add(e);
+//            }
+//        }
+
+        FileManager.saveUncovered(current + inc, Evidence.fromMap(r.uncovered), dcLength, errorThreshold);
+    }
+
+    private static void analyzeCover() throws IOException {
+        List<Cover> cover = FileManager.loadCover(3002, 6, 5);
+        List<Cover> coverInc = FileManager.loadCover(3000, 6, 5);
+//        cover.sort();
+        int i = 0;
+        for (Cover c : cover) {
+            i ++;
+            Iterator<Cover> it = coverInc.iterator();
+            while (it.hasNext()) {
+                Cover ci = it.next();
+                if (c.containing.equals(ci.containing)) {
+                    c.uncovered -= ci.uncovered;
+                    it.remove();
+                    break;
+                }
+            }
+        }
+        cover.sort(Comparator.comparingInt(c -> c.uncovered));
+        System.out.println(cover.size());
     }
 
     private static void analyzeSymmetric(List<AbstractPredicateGroup> predicateGroups) throws IOException {
@@ -212,22 +218,13 @@ public class Main {
         System.out.println("Self symmetric :"  + selfSymmetric  + " paired not symmetric :"  + notSymmetric +  "  not symmetric 2 :" + notSymmetric2);
     }
 
-    private static boolean isAllCovered(Evidence evidence, List<Cover> cover) {
-        for (Cover c : cover) {
-            if (!evidence.isCoveredBy(c.containing)) {
-                return false;
-            }
-        }
-        return true;
-    }
-
     private static void saveUncoveredEvidence(int current, int errorThreshold, int dcLength) throws IOException {
         List<Cover> cover = FileManager.loadCover(current, dcLength, errorThreshold);
         List<Evidence> evidence = FileManager.loadEvidence(current);
 
         List<Evidence> uncovered = new ArrayList<>();
         for (Evidence e : evidence) {
-            if (isAllCovered(e, cover)) {
+            if (DynEI.notAllCovered(e, cover)) {
                 uncovered.add(e);
             }
         }
@@ -235,21 +232,28 @@ public class Main {
         FileManager.saveUncovered(current, uncovered, dcLength, errorThreshold);
 
         int size = evidence.size();
-        int allCoveredSize = uncovered.size();
-        System.out.println("All Evidence: " + size + "; All Covered: " + allCoveredSize + "; Not Covered: " + (size - allCoveredSize));
-        System.out.println((double) allCoveredSize / size);
+        int uncoveredSize = uncovered.size();
+        System.out.println("All Evidence: " + size + "; All Covered: " + (size - uncoveredSize) + "; Not Covered: " + uncoveredSize);
+        System.out.println((double) uncoveredSize / size);
+    }
+
+    private static void incDC(int cur, int inc, int errorThreshold, int dcLength) throws IOException {
+        mergeAndSave(cur, inc);
+        findCoverInc(cur, inc, errorThreshold, dcLength);
     }
 
     public static void main(String[] args) throws Exception {
         long startTime = System.currentTimeMillis();
 
 //        saveColumnPairs();
-//        buildEvidenceSetAndSave();
-//        mergeAndSave();
-//        findCover(2000, 5, 6);
-//        findCoverInc(2000, 80, 5, 6);
-        analyzeIncCover (5000, 0,5,6);
-//        saveUncoveredEvidence(5000, 5, 6);
+        buildEvidenceSetAndSave(20000);
+//        mergeAndSave(30000, 20000);
+        findCover(20000, 5, 6);
+//        findCoverInc(30000, 20000, 5, 6);
+//        analyzeIncCover (2000, 1000,5,6);
+//        saveUncoveredEvidence(2000, 5, 6);
+//        analyzeCover();
+//        incDC(50000, 2500, 5, 6);
 
         long endTime = System.currentTimeMillis();
         long elapsedTime = endTime - startTime;

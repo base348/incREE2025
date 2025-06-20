@@ -21,6 +21,11 @@ public record Evidence(PredicateBitmap predicates, int multiplicity) implements 
         return map;
     }
 
+    public static Map<PredicateBitmap, Integer> merge(Map<PredicateBitmap, Integer> map1, Map<PredicateBitmap, Integer> map2) {
+        map2.forEach((key, value) -> map1.merge(key, value, Integer::sum));
+        return map1;
+    }
+
     public boolean contains(Predicate<?> p) {
         return predicates.contains(p);
     }

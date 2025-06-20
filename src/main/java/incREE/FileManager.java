@@ -20,7 +20,7 @@ public class FileManager {
     static Gson gson = new GsonBuilder()
             .registerTypeAdapter(PredicateBitmap.class, new PredicateBitmapAdapter())
             .create();
-    static final String FILENAME = "adult";
+    static final String FILENAME = "flights";
 
     private static void makePath() {
         File targetDir = new File("./output/" + FILENAME);
@@ -29,19 +29,26 @@ public class FileManager {
         }
     }
 
+    private static void makePath(String path) {
+        File targetDir = new File(path);
+        if (!targetDir.exists()) {
+            boolean isCreated = targetDir.mkdirs();
+        }
+    }
+
     static String evidenceFileName(int lineNumber) {
-        makePath();
-        return "./output/" + FILENAME + "/evidence_" + lineNumber + ".csv";
+        makePath("./output/" + FILENAME + "/evidence");
+        return "./output/" + FILENAME + "/evidence/e_" + lineNumber + ".csv";
     }
 
     static String uncoveredEvidenceFileName(int lineNumber, int dcLength, int threshold) {
-        makePath();
-        return String.format("./output/%s/evidence_uncovered_%d_%dl_%dth.csv", FILENAME, lineNumber, dcLength, threshold);
+        makePath(String.format("./output/%s/uncovered", FILENAME));
+        return String.format("./output/%s/uncovered/e_%d_%dl_%dth.csv", FILENAME, lineNumber, dcLength, threshold);
     }
 
     static String coverFileName(int lineNumber, int dcLength, int threshold) {
-        makePath();
-        return String.format("./output/%s/cover_%d_%dl_%dth.json", FILENAME, lineNumber, dcLength, threshold);
+        makePath(String.format("./output/%s/cover", FILENAME));
+        return String.format("./output/%s/cover/c_%d_%dl_%dth.json", FILENAME, lineNumber, dcLength, threshold);
     }
 
     static String terminalFileName(int lineNumber, int dcLength, int threshold) {
