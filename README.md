@@ -7,20 +7,20 @@ Implemented in Java 17
 ## CLI usage
 1. Static mining
 ```shell
-java -jar IncDC.jar [filename] static [lines] --errThreshold=N --dcLength=L
+java -jar IncREE.jar [filename] static [lines] --errThreshold=N --dcLength=L
 ```
 Example:
 ```shell
-java -jar IncDC.jar adult.csv static 1000 --errThreshold=50 --dcLength=6
+java -jar IncREE.jar adult.csv static 1000 --errThreshold=50 --dcLength=6
 ```
 
 2. inc
 ```shell
-java -jar IncDC.jar [filename] inc [lines] [inclines] --errThreshold=N --dcLength=L
+java -jar IncREE.jar [filename] inc [lines] [inclines] --errThreshold=N --dcLength=L
 ```
 Example:
 ```shell
-java -jar IncDC.jar adult.csv inc 1000 50 --errThreshold=50 --dcLength=6
+java -jar IncREE.jar adult.csv inc 1000 50 --errThreshold=50 --dcLength=6
 ```
 
 - 执行增量挖掘前，需确保已完成对应 lines 数量的挖掘（通过 static 或 inc 模式完成）
