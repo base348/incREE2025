@@ -3,11 +3,14 @@ package incREE;
 import com.google.gson.reflect.TypeToken;
 import incREE.cover.Cover;
 import incREE.dataset.ColumnPair;
+import incREE.dataset.Input;
 import incREE.dataset.Relation;
 import incREE.evidence.*;
 
 import java.io.*;
 import java.lang.reflect.Type;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -20,67 +23,77 @@ public class FileManager {
     static Gson gson = new GsonBuilder()
             .registerTypeAdapter(PredicateBitmap.class, new PredicateBitmapAdapter())
             .create();
-    static final String FILENAME = "flights";
+    private static String filename;
 
-    private static void makePath() {
-        File targetDir = new File("./output/" + FILENAME);
-        if (!targetDir.exists()) {
-            boolean isCreated = targetDir.mkdirs();
+    public static void setFilename(String filename) {
+        if (filename.endsWith(".csv")) {
+            filename = filename.substring(0, filename.length() - 4);
         }
+        FileManager.filename = filename;
     }
 
-    private static void makePath(String path) {
+    private static boolean makePath() {
+        File targetDir = new File("./output/" + filename);
+        if (!targetDir.exists()) {
+            return targetDir.mkdirs();
+        }
+        return true;
+    }
+
+    private static boolean makePath(String path) {
         File targetDir = new File(path);
         if (!targetDir.exists()) {
-            boolean isCreated = targetDir.mkdirs();
+            return targetDir.mkdirs();
         }
+        return true;
     }
 
     static String evidenceFileName(int lineNumber) {
-        makePath("./output/" + FILENAME + "/evidence");
-        return "./output/" + FILENAME + "/evidence/e_" + lineNumber + ".csv";
+        makePath("./output/" + filename + "/evidence");
+        return "./output/" + filename + "/evidence/e_" + lineNumber + ".csv";
     }
 
     static String uncoveredEvidenceFileName(int lineNumber, int dcLength, int threshold) {
-        makePath(String.format("./output/%s/uncovered", FILENAME));
-        return String.format("./output/%s/uncovered/e_%d_%dl_%dth.csv", FILENAME, lineNumber, dcLength, threshold);
+        makePath(String.format("./output/%s/uncovered", filename));
+        return String.format("./output/%s/uncovered/e_%d_%dl_%dth.csv", filename, lineNumber, dcLength, threshold);
     }
 
     static String coverFileName(int lineNumber, int dcLength, int threshold) {
-        makePath(String.format("./output/%s/cover", FILENAME));
-        return String.format("./output/%s/cover/c_%d_%dl_%dth.json", FILENAME, lineNumber, dcLength, threshold);
+        makePath(String.format("./output/%s/cover", filename));
+        return String.format("./output/%s/cover/c_%d_%dl_%dth.json", filename, lineNumber, dcLength, threshold);
     }
 
     static String terminalFileName(int lineNumber, int dcLength, int threshold) {
         makePath();
-        return String.format("./output/%s/terminal_%d_%dl_%dth.json", FILENAME, lineNumber, dcLength, threshold);
+        return String.format("./output/%s/terminal_%d_%dl_%dth.json", filename, lineNumber, dcLength, threshold);
     }
 
     static String dcFileName(int lineNumber) {
-        makePath();
-        return "./output/" + FILENAME + "/dc_" + lineNumber + ".csv";
+        makePath(String.format("./output/%s/dc", filename));
+        return "./output/" + filename + "/dc/dc_" + lineNumber + ".txt";
     }
 
     static String columnPairsFileName() {
         makePath();
-        return "./output/" + FILENAME + "/columnPairs.json";
+        return "./output/" + filename + "/columnPairs.json";
     }
 
     static String relationFileName() {
-        return "./input/" + FILENAME + ".csv";
+        return "./input/" + filename + ".csv";
     }
 
 
-    static void saveColumnPairs(List<DataPredicateGroup> predicateGroups) {
+    static List<PredicateGroup.JsonDTO> saveColumnPairs(List<DataPredicateGroup> predicateGroups) {
         try (BufferedWriter writer = new BufferedWriter(new FileWriter(columnPairsFileName()))) {
             List<PredicateGroup.JsonDTO> data = predicateGroups.stream().filter(DataPredicateGroup::isMajor).map(DataPredicateGroup::toJsonDTO).collect(Collectors.toList());
             gson.toJson(data, writer);
+            return data;
         } catch (IOException e) {
-            e.printStackTrace();
+            throw new RuntimeException(e);
         }
     }
 
-    public static List<AbstractPredicateGroup> loadAbstractPredicateGroups() throws IOException {
+    static List<AbstractPredicateGroup> loadAbstractPredicateGroups() {
         BufferedReader reader = null;
 
         try {
@@ -88,6 +101,12 @@ public class FileManager {
 
             Type listType = new TypeToken<List<PredicateGroup.JsonDTO>>(){}.getType();
             List<PredicateGroup.JsonDTO> data = gson.fromJson(reader, listType);
+            return AbstractPredicateGroup.fromJsonDTO(data);
+        } catch (IOException e) {
+            // build predicate groups and save here
+            Relation r = new Input(FileManager.relationFileName()).read().getRelation();
+            List<DataPredicateGroup> predicateGroups = r.predicateGroups;
+            List<PredicateGroup.JsonDTO> data = FileManager.saveColumnPairs(predicateGroups);
             return AbstractPredicateGroup.fromJsonDTO(data);
         } finally {
             if (reader != null) {
@@ -135,7 +154,7 @@ public class FileManager {
         saveEvidence(uncoveredEvidenceFileName(size, dcLength, threshold), evidence);
     }
 
-    static List<Evidence> loadUncovered(int size, int dcLength, int threshold) throws IOException {
+    static List<Evidence> loadUncovered(int size, int dcLength, int threshold) {
         List<Evidence> evidence = new ArrayList<>();
         if (size == 0) {
             return evidence;
@@ -151,15 +170,17 @@ public class FileManager {
                 evidence.add(new Evidence(key, Integer.parseInt(parts[0].trim())));
             }
         } catch (IOException e) {
-            System.out.println("Evidence file " + evidenceFileName(size)  + " not found.");
-            throw e;
+            Path path = Paths.get(uncoveredEvidenceFileName(size, dcLength, threshold));
+            System.err.println("Evidence file " + path.toAbsolutePath().normalize() + " not found.");
+            System.err.println("If you are attempting to run incremental mining, please ensure that static mining has been completed.");
+            System.exit(-1);
         }
         return evidence;
     }
 
     static void saveEvidence(int size, Map<PredicateBitmap, Integer> evidence) {
         saveEvidence(evidenceFileName(size), Evidence.fromMap(evidence));
-        System.out.println("不重复的证据行数: "+evidence.size());
+        System.out.println("Totally " + evidence.size() + " distinct evidence.");
     }
 
     static void saveEvidence(String fileName, List<Evidence> evidences) {
@@ -172,14 +193,14 @@ public class FileManager {
         try (FileWriter writer = new FileWriter(fileName)) {
             // no headline
             writer.write(builder.toString());
-            System.out.println("Evidence Map saved to CSV file: " + fileName);
+            Path path = Paths.get(fileName);
+            System.out.println("Evidence set saved to CSV file: " + path.toRealPath());
         } catch (IOException e) {
-            e.printStackTrace();
-            System.exit(-1);
+            throw new RuntimeException(e);
         }
     }
 
-    static List<Evidence> loadEvidence(int size) throws IOException {
+    static List<Evidence> loadEvidence(int size) {
         List<Evidence> evidence = new ArrayList<>();
         if (size == 0) {
             return evidence;
@@ -195,8 +216,10 @@ public class FileManager {
                 evidence.add(new Evidence(key, Integer.parseInt(parts[0].trim())));
             }
         } catch (IOException e) {
-            System.out.println("Evidence file " + evidenceFileName(size)  + " not found.");
-            throw e;
+            Path path = Paths.get(evidenceFileName(size));
+            System.err.println("Evidence file " + path.toAbsolutePath().normalize() + " not found.");
+            System.err.println("If you are attempting to run incremental mining, please ensure that static mining has been completed.");
+            System.exit(-1);
         }
         return evidence;
     }
@@ -204,10 +227,10 @@ public class FileManager {
     private static void saveCover(List<Cover> covers, String filename) {
         try (BufferedWriter writer = new BufferedWriter(new FileWriter(filename))) {
             gson.toJson(covers, writer);
-            System.out.println("Cover saved to CSV file: " + filename);
+            Path path = Paths.get(filename);
+            System.out.println("Cover saved to CSV file: " + path.toRealPath());
         } catch (IOException e) {
-            e.printStackTrace();
-            System.exit(-1);
+            throw new RuntimeException(e);
         }
     }
 
@@ -224,20 +247,20 @@ public class FileManager {
 
     static void saveCover(int size, List<Cover> cover, int dcLength, int threshold) {
         saveCover(cover, coverFileName(size, dcLength, threshold));
+        writeExpression(size, cover);
     }
 
-    static void saveTerminal(int size, List<Cover> cover, int dcLength, int threshold) {
-        saveCover(cover, terminalFileName(size, dcLength, threshold));
-    }
-
-    static List<Cover> loadCover(int size, int dcLength, int threshold) throws IOException {
+    static List<Cover> loadCover(int size, int dcLength, int threshold) {
         BufferedReader reader = null;
 
         try {
             reader = new BufferedReader(new FileReader(coverFileName(size, dcLength, threshold)));
 
-            Type listType = new TypeToken<List<Cover>>(){}.getType();
+            Type listType = new TypeToken<List<Cover>>() {
+            }.getType();
             return gson.fromJson(reader, listType);
+        } catch (IOException e) {
+            throw new RuntimeException(e);
         } finally {
             if (reader != null) {
                 try {
@@ -249,26 +272,7 @@ public class FileManager {
         }
     }
 
-    static List<Cover> loadTerminal(int size, int dcLength, int threshold) throws IOException {
-        BufferedReader reader = null;
-
-        try {
-            reader = new BufferedReader(new FileReader(terminalFileName(size, dcLength, threshold)));
-
-            Type listType = new TypeToken<List<Cover>>(){}.getType();
-            return gson.fromJson(reader, listType);
-        } finally {
-            if (reader != null) {
-                try {
-                    reader.close();
-                } catch (IOException e) {
-                    e.printStackTrace();
-                }
-            }
-        }
-    }
-
-    static void writeExpression(int size, List<Cover> covers) throws IOException {
+    static void writeExpression(int size, List<Cover> covers) {
         List<AbstractPredicate> allPredicates = loadAbstractPredicateGroups().get(0).allPredicates;
         StringBuilder builder = new StringBuilder();
         for (Cover dc : covers) {
@@ -281,6 +285,10 @@ public class FileManager {
 
         try (FileWriter writer = new FileWriter(dcFileName(size))) {
             writer.write(builder.toString());
+            Path path = Paths.get(dcFileName(size));
+            System.out.println("DC saved to file: " + path.toRealPath());
+        } catch (IOException e) {
+            throw new RuntimeException(e);
         }
     }
 }

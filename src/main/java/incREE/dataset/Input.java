@@ -3,6 +3,8 @@ package incREE.dataset;
 import java.io.BufferedReader;
 import java.io.FileReader;
 import java.io.IOException;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Scanner;
@@ -52,7 +54,9 @@ public class Input {
             this.filename = fileName;
             System.out.println("File " + this.filename + " opened successfully.");
         } catch (IOException e) {
-            System.err.println("Input failed: file not found: " + fileName);
+            Path path = Paths.get(fileName);
+            System.err.println("Input failed: file not found from " + path.toAbsolutePath().normalize());
+            System.err.println("Please ensure the input file exists and the input argument is correct.");
             System.exit(-1);
         }
         return this;

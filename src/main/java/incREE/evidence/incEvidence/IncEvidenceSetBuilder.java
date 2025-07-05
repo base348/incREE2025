@@ -49,13 +49,14 @@ public class IncEvidenceSetBuilder {
 
     public Map<PredicateBitmap, Integer> build() {
         // initialize contexts
+        System.out.println("Building Evidence Set...");
         BitSet previous = new BitSet(currentTupleSize);
         previous.set(0, currentTupleSize);
 
         for (int i = currentTupleSize; i < currentTupleSize + incTupleSize; i++) {
             reconcileContexts(new EvidenceContext(i, (BitSet) previous.clone(), head.copy()));
             previous.set(i);
-            if (i % 1000 == 0) {
+            if (i % 1000 == 0 && i > 0) {
                 System.out.println((float)(i-currentTupleSize)/incTupleSize*100 + "% completed.");
             }
         }
